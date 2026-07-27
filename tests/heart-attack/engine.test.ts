@@ -1,0 +1,270 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createSeededRandom } from "../../lib/games/core/random";
+import {
+  AUTO_PLAY_INTERVAL_MS,
+  advanceAutoPlay,
+  applyHeartAttackAction,
+  buildHeartAttackDeck,
+  calculateBotReaction,
+  createHeartAttackGame,
+  getCalledRankValue,
+  getHeartAttackWinner,
+  getNextCallNumber,
+  getNextPlayablePlayer,
+  isSlapTrigger,
+  PENALTY_ALERT_MS,
+  resolveRoundResult,
+  resolveSlapWindow,
+  ROUND_RESULT_DISPLAY_MS,
+  submitSlap,
+  type HeartAttackCard,
+  type HeartAttackState
+} from "../../lib/games/heart-attack";
+
+const players = [
+  { id: "p1", nickname: "阿德" },
+  { id: "p2", nickname: "小萱" },
+  { id: "p3", nickname: "冠宇" }
+];
+
+test("builds enough 54-card decks for player count", () => {
+  assert.equal(buildHeartAttackDeck(3, createSeededRandom(1)).length, 60);
+  assert.equal(buildHeartAttackDeck(6, createSeededRandom(1)).length, 120);
+});
+
+test("heart attack cards have unique ids after multi-deck build", () => {
+  const deck = buildHeartAttackDeck(8, createSeededRandom(2));
+  assert.equal(new Set(deck.map((item) => item.id)).size, deck.length);
+});
+
+test("deck includes jokers", () => {
+  assert(buildHeartAttackDeck(3, createSeededRandom(3)).some((item) => item.rank === "JOKER"));
+});
+
+test("createHeartAttackGame deals 20 cards and schedules autoplay", () => {
+  const state = createHeartAttackGame({ players, seed: 4, initialTimestamp: 100 });
+  assert.equal(state.playerDecks.p1.length, 20);
+  assert.equal(state.playerDecks.p2.length, 20);
+  assert.equal(state.playerDecks.p3.length, 20);
+  assert.equal(state.nextAutoPlayAt, 100 + AUTO_PLAY_INTERVAL_MS);
+  assert.equal(state.penaltyResult, null);
+});
+
+test("requires at least 3 players", () => {
+  assert.throws(() => createHeartAttackGame({ players: players.slice(0, 2), seed: 1 }));
+});
+
+test("rejects duplicate player ids", () => {
+  assert.throws(() => createHeartAttackGame({ players: [players[0], players[0], players[1]], seed: 1 }));
+});
+
+test("call number cycles from 1 to 13", () => {
+  assert.equal(getNextCallNumber(1), 2);
+  assert.equal(getNextCallNumber(13), 1);
+});
+
+test("face cards map to called numbers", () => {
+  assert.equal(getCalledRankValue(card("A")), 1);
+  assert.equal(getCalledRankValue(card("J")), 11);
+  assert.equal(getCalledRankValue(card("Q")), 12);
+  assert.equal(getCalledRankValue(card("K")), 13);
+});
+
+test("joker is never a slap trigger by call number", () => {
+  assert.equal(getCalledRankValue({ id: "joker", deckIndex: 1, suit: null, rank: "JOKER" }), null);
+});
+
+test("autoplay does nothing before scheduled time", () => {
+  const state = stateWithDecks(7, [["8"], ["2"], ["3"]], 1000);
+  assert.equal(advanceAutoPlay(state, 1799).centerPile.length, 0);
+});
+
+test("AUTO_PLAY_TICK flips exactly one card when due", () => {
+  const state = stateWithDecks(7, [["8"], ["2"], ["3"]], 1000);
+  const next = applyHeartAttackAction(state, { type: "AUTO_PLAY_TICK", timestamp: 1800 });
+  assert.equal(next.centerPile.length, 1);
+  assert.equal(next.currentPlayerId, "p2");
+});
+
+test("matching auto-played card opens slap window", () => {
+  const next = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1800);
+  assert.equal(next.phase, "slap-window");
+  assert.equal(next.slapDeadline, 3300);
+  assert.equal(next.nextAutoPlayAt, null);
+});
+
+test("non-matching auto-played card schedules next auto play", () => {
+  const next = advanceAutoPlay(stateWithDecks(7, [["8"], ["2"], ["3"]], 1000), 1800);
+  assert.equal(next.phase, "playing");
+  assert.equal(next.nextAutoPlayAt, 2600);
+});
+
+test("player action only supports SLAP", () => {
+  const state = stateWithDecks(7, [["8"], ["2"], ["3"]], 1000);
+  assert.throws(() => applyHeartAttackAction(state, { type: "PLAY_TOP_CARD", playerId: "p1", timestamp: 1800 } as never));
+});
+
+test("valid slap is recorded until the slap window resolves", () => {
+  const state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1800);
+  const next = submitSlap(state, "p2", 1900);
+  assert.equal(next.phase, "slap-window");
+  assert.equal(next.slapResponses.length, 1);
+  assert.equal(next.nextAutoPlayAt, null);
+});
+
+test("slowest valid slapper receives the center pile penalty", () => {
+  let state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1800);
+  state = submitSlap(state, "p2", 1900);
+  state = submitSlap(state, "p3", 2100);
+  const next = resolveSlapWindow(state, 3300);
+  assert.equal(next.roundResult?.reason, "slowest-slap");
+  assert.equal(next.roundResult?.penaltyPlayerId, "p3");
+  assert.equal(next.penaltyResult?.reason, "slowest-slap");
+  assert.equal(next.penaltyResult?.playerId, "p3");
+  assert.equal(next.penaltyResult?.cardsTaken, 1);
+  assert.deepEqual(next.penaltyResult?.cardIds, ["deck-1-clubs-7"]);
+  assert.equal(next.penaltyResult?.responseTimeMs, 300);
+  assert.equal(next.nextAutoPlayAt, 3300 + PENALTY_ALERT_MS);
+});
+
+test("false slap collects center pile as penalty", () => {
+  const state = advanceAutoPlay(stateWithDecks(7, [["8"], ["2"], ["3"]], 1000), 1800);
+  const next = submitSlap(state, "p2", 1900);
+  assert.equal(next.roundResult?.reason, "false-slap");
+  assert.equal(next.roundResult?.penaltyPlayerId, "p2");
+  assert.equal(next.penaltyResult?.reason, "false-slap");
+  assert.equal(next.penaltyResult?.playerName, players[1].nickname);
+  assert.equal(next.penaltyResult?.cardsTaken, 1);
+  assert.equal(next.nextAutoPlayAt, 1900 + ROUND_RESULT_DISPLAY_MS);
+});
+
+test("late slap is treated as false slap", () => {
+  const state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1800);
+  const next = submitSlap(state, "p2", 3400);
+  assert.equal(next.roundResult?.reason, "false-slap");
+});
+
+test("missed slap window gives pile to trigger player", () => {
+  const state = advanceAutoPlay(stateWithDecks(7, [["7", "8"], ["2"], ["3"]], 1000), 1800);
+  const next = resolveSlapWindow(state, 3400);
+  assert.equal(next.roundResult?.reason, "no-slap");
+  assert.equal(next.roundResult?.penaltyPlayerId, "p1");
+  assert.equal(next.penaltyResult?.reason, "no-slap");
+  assert.equal(next.penaltyResult?.responseTimeMs, null);
+});
+
+test("slap-window does not auto-play another card", () => {
+  const state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1800);
+  assert.equal(advanceAutoPlay(state, 9999).centerPile.length, 1);
+});
+
+test("round-result does not auto-play until display time passes", () => {
+  const state = submitSlap(advanceAutoPlay(stateWithDecks(7, [["7", "8"], ["2"], ["3"]], 1000), 1800), "p2", 1900);
+  const result = resolveSlapWindow(state, 3300);
+  assert.equal(advanceAutoPlay(result, 5099).phase, "round-result");
+});
+
+test("round-result resumes autoplay after display time", () => {
+  const state = submitSlap(advanceAutoPlay(stateWithDecks(7, [["7", "8"], ["2"], ["3"]], 1000), 1800), "p2", 1900);
+  const result = resolveSlapWindow(state, 3300);
+  const next = resolveRoundResult(result, 5100);
+  assert.equal(next.phase, "playing");
+  assert.equal(next.penaltyResult, null);
+  assert.equal(next.nextAutoPlayAt, 5900);
+});
+
+test("round-result ignores additional slap input", () => {
+  const state = submitSlap(advanceAutoPlay(stateWithDecks(7, [["8"], ["2"], ["3"]], 1000), 1800), "p2", 1900);
+  assert.equal(submitSlap(state, "p3", 1950), state);
+});
+
+test("finished games do not auto-play", () => {
+  const state = { ...stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), phase: "finished" as const, nextAutoPlayAt: null };
+  assert.equal(advanceAutoPlay(state, 9999), state);
+});
+
+test("getNextPlayablePlayer respects seat order", () => {
+  const state = stateWithDecks(7, [["8"], ["2"], ["3"]], 1000);
+  assert.equal(getNextPlayablePlayer(state, "p1"), "p2");
+  assert.equal(getNextPlayablePlayer(state, "p3"), "p1");
+});
+
+test("player enters pendingFinish after autoplaying final card", () => {
+  const next = advanceAutoPlay(stateWithDecks(7, [["8"], ["2"], ["3"]], 1000), 1800);
+  assert.equal(next.players.find((item) => item.id === "p1")?.status, "pendingFinish");
+});
+
+test("pendingFinish player wins when autoplay reaches them again", () => {
+  let state = advanceAutoPlay(stateWithDecks(7, [["8"], ["2"], ["3"]], 1000), 1800);
+  state = advanceAutoPlay(state, 2600);
+  state = advanceAutoPlay(state, 3400);
+  assert.equal(state.phase, "finished");
+  assert.equal(getHeartAttackWinner(state), "p1");
+});
+
+test("pendingFinish trigger creates a failed finish penalty when nobody slaps", () => {
+  const state = {
+    ...advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1800),
+    players: players.slice(0, 3).map((player, seat) => ({
+      ...player,
+      seat,
+      type: "human" as const,
+      status: player.id === "p1" ? "pendingFinish" as const : "playing" as const
+    }))
+  };
+  const next = resolveSlapWindow(state, 3400);
+  assert.equal(next.penaltyResult?.reason, "pending-finish-failed");
+  assert.equal(next.penaltyResult?.playerId, "p1");
+});
+
+test("bot reaction can miss a real trigger", () => {
+  assert.equal(calculateBotReaction("easy", () => 0.01, true), null);
+});
+
+test("bot reaction falls inside difficulty range", () => {
+  assert.equal(calculateBotReaction("hard", () => 0.5, true), 500);
+});
+
+test("bot can false slap based on chance", () => {
+  assert.equal(calculateBotReaction("normal", () => 0.01, false), 555);
+});
+
+test("isSlapTrigger compares card rank to called number", () => {
+  assert.equal(isSlapTrigger(card("A"), 1), true);
+  assert.equal(isSlapTrigger(card("A"), 2), false);
+});
+
+test("unknown slapper is rejected", () => {
+  const state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1800);
+  assert.throws(() => submitSlap(state, "ghost", 1900));
+});
+
+function stateWithDecks(callNumber: number, decks: string[][], now: number): HeartAttackState {
+  return {
+    phase: "playing",
+    players: players.slice(0, decks.length).map((player, seat) => ({ ...player, seat, type: "human", status: "playing" })),
+    playerDecks: Object.fromEntries(players.slice(0, decks.length).map((player, index) => [player.id, decks[index].map((rank) => card(rank))])),
+    centerPile: [],
+    currentPlayerId: "p1",
+    callNumber,
+    slapResponses: [],
+    slapDeadline: null,
+    roundResult: null,
+    penaltyResult: null,
+    winnerId: null,
+    turnNumber: 1,
+    autoPlayIntervalMs: AUTO_PLAY_INTERVAL_MS,
+    nextAutoPlayAt: now + AUTO_PLAY_INTERVAL_MS,
+    isAutoPlayPaused: false
+  };
+}
+
+function card(rank: string): HeartAttackCard {
+  return {
+    id: `deck-1-clubs-${rank}`,
+    deckIndex: 1,
+    suit: rank === "JOKER" ? null : "clubs",
+    rank: rank as HeartAttackCard["rank"]
+  };
+}
