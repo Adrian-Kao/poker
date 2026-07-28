@@ -53,6 +53,7 @@ export function createHeartAttackGame(options: CreateHeartAttackGameOptions): He
     roundResult: null,
     penaltyResult: null,
     winnerId: null,
+    winnerIds: [],
     turnNumber: 1,
     autoPlayIntervalMs: AUTO_PLAY_INTERVAL_MS,
     nextAutoPlayAt: initialTimestamp + AUTO_PLAY_INTERVAL_MS,
@@ -83,7 +84,7 @@ export function applyHeartAttackAction(state: HeartAttackState, action: HeartAtt
 }
 
 export function advanceAutoPlay(state: HeartAttackState, timestamp: number): HeartAttackState {
-  if (state.isAutoPlayPaused || state.phase === "finished" || state.phase === "slap-window") return state;
+  if (state.isAutoPlayPaused || state.phase === "finished") return state;
   if (state.nextAutoPlayAt === null || timestamp < state.nextAutoPlayAt) return state;
 
   if (state.phase === "round-result") {
@@ -100,7 +101,7 @@ export function submitSlap(state: HeartAttackState, playerId: string, timestamp:
   if (state.phase === "round-result" || state.phase === "finished") return state;
 
   const latest = state.centerPile.at(-1) ?? null;
-  const valid = state.phase === "slap-window" && latest !== null && timestamp <= (state.slapDeadline ?? -1);
+  const valid = latest !== null && state.slapDeadline !== null && timestamp <= state.slapDeadline;
   const response = { playerId, timestamp, valid };
 
   if (!valid) {
@@ -108,6 +109,7 @@ export function submitSlap(state: HeartAttackState, playerId: string, timestamp:
     return {
       ...state,
       phase: "round-result",
+      players: restorePenaltyPlayer(state.players, playerId),
       playerDecks: givePileToPlayer(state.playerDecks, playerId, pile),
       centerPile: [],
       slapResponses: [...state.slapResponses, response],
@@ -131,11 +133,20 @@ export function submitSlap(state: HeartAttackState, playerId: string, timestamp:
 }
 
 export function resolveSlapWindow(state: HeartAttackState, timestamp: number): HeartAttackState {
-  if (state.phase !== "slap-window") return state;
-  if (state.slapDeadline !== null && timestamp < state.slapDeadline) return state;
+  if (state.slapDeadline === null) return state;
+  if (timestamp < state.slapDeadline) return state;
 
   const trigger = state.centerPile.at(-1) ?? null;
   const slowest = getSlowestValidSlap(state.slapResponses);
+  if (!slowest) {
+    return {
+      ...state,
+      slapDeadline: null,
+      slapResponses: [],
+      nextAutoPlayAt: timestamp + state.autoPlayIntervalMs
+    };
+  }
+
   const penaltyPlayerId = slowest?.playerId ?? trigger?.playedBy ?? state.currentPlayerId;
   const pile = state.centerPile;
 
@@ -145,6 +156,7 @@ export function resolveSlapWindow(state: HeartAttackState, timestamp: number): H
   return {
     ...state,
     phase: "round-result",
+    players: restorePenaltyPlayer(state.players, penaltyPlayerId),
     playerDecks: givePileToPlayer(state.playerDecks, penaltyPlayerId, pile),
     centerPile: [],
     slapDeadline: null,
@@ -174,6 +186,7 @@ export function getNextPlayablePlayer(state: HeartAttackState, fromPlayerId = st
 
   for (let offset = 1; offset <= ordered.length; offset += 1) {
     const player = ordered[(startIndex + offset) % ordered.length];
+    if (player.status === "winner" || player.status === "loser") continue;
     if (player.status === "pendingFinish") return player.id;
     if (player.status === "playing" && (state.playerDecks[player.id]?.length ?? 0) > 0) return player.id;
   }
@@ -184,21 +197,28 @@ export function getNextPlayablePlayer(state: HeartAttackState, fromPlayerId = st
 export const getNextPlayer = getNextPlayablePlayer;
 
 export function getHeartAttackWinner(state: HeartAttackState) {
-  return state.winnerId;
+  return state.winnerIds[0] ?? state.winnerId;
+}
+
+export function getAutoPlayIntervalMs(turnNumber: number) {
+  const completedCards = Math.max(0, turnNumber - 1);
+  const speedSteps = Math.floor(completedCards / 13);
+  return Math.max(500, AUTO_PLAY_INTERVAL_MS - speedSteps * 50);
 }
 
 function autoPlayTopCard(state: HeartAttackState, playerId: string, timestamp: number): HeartAttackState {
   const player = state.players.find((item) => item.id === playerId);
-  if (!player || player.status === "winner") throw new Error("Player cannot act.");
+  if (!player || player.status === "winner" || player.status === "loser") throw new Error("Player cannot act.");
 
-  if (player.status === "pendingFinish") return finishGame(state, playerId);
+  if (player.status === "pendingFinish") return awardWinnerAndAdvance(state, playerId, timestamp);
 
   const deck = state.playerDecks[playerId] ?? [];
-  if (deck.length === 0) return finishGame(state, playerId);
+  if (deck.length === 0) return awardWinnerAndAdvance(state, playerId, timestamp);
 
   const [card, ...remainingDeck] = deck;
   const playedCard: PlayedCard = { card, playedBy: playerId, calledNumber: state.callNumber, playedAt: timestamp };
   const trigger = isSlapTrigger(card, state.callNumber);
+  const hasActiveSlapWindow = state.slapDeadline !== null && timestamp <= state.slapDeadline;
   const players = remainingDeck.length === 0
     ? state.players.map((item) => (item.id === playerId ? { ...item, status: "pendingFinish" as const } : item))
     : state.players;
@@ -208,51 +228,91 @@ function autoPlayTopCard(state: HeartAttackState, playerId: string, timestamp: n
     playerDecks: { ...state.playerDecks, [playerId]: remainingDeck },
     centerPile: [...state.centerPile, playedCard],
     callNumber: getNextCallNumber(state.callNumber),
-    slapResponses: [],
+    slapResponses: hasActiveSlapWindow ? state.slapResponses : [],
     roundResult: null,
     penaltyResult: null,
-    turnNumber: state.turnNumber + 1
+    turnNumber: state.turnNumber + 1,
+    autoPlayIntervalMs: getAutoPlayIntervalMs(state.turnNumber + 1)
   };
 
-  if (trigger) {
-    return { ...baseState, phase: "slap-window", slapDeadline: timestamp + SLAP_WINDOW_MS, nextAutoPlayAt: null };
-  }
-
   const nextPlayerId = getNextPlayablePlayer(baseState, playerId);
+  const advancedState = advanceToNextActivePlayer(baseState, nextPlayerId, timestamp);
+  if (advancedState.phase === "finished") return advancedState;
+
   return {
-    ...finishIfPending(baseState, nextPlayerId),
-    slapDeadline: null,
-    nextAutoPlayAt: timestamp + state.autoPlayIntervalMs
+    ...advancedState,
+    slapDeadline: trigger ? timestamp + SLAP_WINDOW_MS : (hasActiveSlapWindow ? state.slapDeadline : null),
+    nextAutoPlayAt: trigger ? null : timestamp + advancedState.autoPlayIntervalMs
   };
 }
 
 function resumeAfterRoundResult(state: HeartAttackState, timestamp: number): HeartAttackState {
   const nextPlayerId = state.currentPlayerId ?? getNextPlayablePlayer(state);
-  const resumed = finishIfPending({ ...state, phase: "playing", roundResult: state.roundResult, penaltyResult: null }, nextPlayerId);
-  if (resumed.phase === "finished") return resumed;
-  return { ...resumed, currentPlayerId: nextPlayerId, nextAutoPlayAt: timestamp + state.autoPlayIntervalMs };
+  return advanceToNextActivePlayer({ ...state, phase: "playing", roundResult: state.roundResult, penaltyResult: null }, nextPlayerId, timestamp);
 }
 
-function finishIfPending(state: HeartAttackState, nextPlayerId: string | null): HeartAttackState {
-  if (!nextPlayerId) return { ...state, phase: "finished", currentPlayerId: null, nextAutoPlayAt: null };
-  const player = state.players.find((item) => item.id === nextPlayerId);
-  if (player?.status === "pendingFinish") return finishGame(state, nextPlayerId);
-  return { ...state, phase: "playing", currentPlayerId: nextPlayerId };
+function advanceToNextActivePlayer(state: HeartAttackState, nextPlayerId: string | null, timestamp: number): HeartAttackState {
+  let nextState = state;
+  let candidateId = nextPlayerId;
+
+  while (candidateId) {
+    const player = nextState.players.find((item) => item.id === candidateId);
+    if (player?.status === "pendingFinish") {
+      nextState = markWinner(nextState, candidateId);
+      if (nextState.phase === "finished") return nextState;
+      candidateId = getNextPlayablePlayer(nextState, candidateId);
+      continue;
+    }
+
+    if (player?.status === "playing") {
+      return { ...nextState, phase: "playing", currentPlayerId: candidateId, nextAutoPlayAt: timestamp + nextState.autoPlayIntervalMs };
+    }
+
+    candidateId = getNextPlayablePlayer(nextState, candidateId);
+  }
+
+  return finishWithLastPlayer(nextState);
 }
 
-function finishGame(state: HeartAttackState, winnerId: string): HeartAttackState {
+function awardWinnerAndAdvance(state: HeartAttackState, winnerId: string, timestamp: number): HeartAttackState {
+  const rankedState = markWinner(state, winnerId);
+  if (rankedState.phase === "finished") return rankedState;
+  return advanceToNextActivePlayer(rankedState, getNextPlayablePlayer(rankedState, winnerId), timestamp);
+}
+
+function markWinner(state: HeartAttackState, winnerId: string): HeartAttackState {
+  const winnerIds = state.winnerIds.includes(winnerId) ? state.winnerIds : [...state.winnerIds, winnerId];
+  const nextState: HeartAttackState = {
+    ...state,
+    winnerId: winnerIds[0] ?? winnerId,
+    winnerIds,
+    players: state.players.map((player) => (player.id === winnerId ? { ...player, status: "winner" } : player))
+  };
+  return finishIfOnlyLastPlayerRemains(nextState);
+}
+
+function finishIfOnlyLastPlayerRemains(state: HeartAttackState): HeartAttackState {
+  const unfinished = state.players.filter((player) => player.status !== "winner" && player.status !== "loser");
+  if (unfinished.length > 1) return state;
+  return finishWithLastPlayer(state);
+}
+
+function finishWithLastPlayer(state: HeartAttackState): HeartAttackState {
   return {
     ...state,
     phase: "finished",
     currentPlayerId: null,
-    winnerId,
     nextAutoPlayAt: null,
-    players: state.players.map((player) => (player.id === winnerId ? { ...player, status: "winner" } : player))
+    players: state.players.map((player) => (player.status === "winner" ? player : { ...player, status: "loser" }))
   };
 }
 
 function givePileToPlayer(playerDecks: Record<string, HeartAttackCard[]>, playerId: string, pile: PlayedCard[]) {
   return { ...playerDecks, [playerId]: [...(playerDecks[playerId] ?? []), ...pile.map((played) => played.card)] };
+}
+
+function restorePenaltyPlayer(players: HeartAttackState["players"], playerId: string) {
+  return players.map((player) => (player.id === playerId && player.status === "pendingFinish" ? { ...player, status: "playing" as const } : player));
 }
 
 function getSlowestValidSlap(responses: { playerId: string; timestamp: number; valid: boolean }[]) {

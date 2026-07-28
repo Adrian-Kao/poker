@@ -3730,3 +3730,498 @@ input[type="range"] {
   }
 }
 
+
+/* Ninety-nine table spacing pass: larger felt and more breathing room. */
+.ninety-nine-table.reference-look {
+  width: min(100%, 1720px);
+  margin-inline: auto;
+}
+
+.ninety-nine-table.reference-look .felt-table {
+  width: min(100%, 1680px);
+  max-width: calc(100vw - clamp(36px, 5vw, 96px));
+  min-height: min(80vh, 900px);
+  margin-inline: auto;
+  overflow: hidden;
+}
+
+.ninety-nine-table.reference-look .portrait-seat.top {
+  top: 34px;
+}
+
+.ninety-nine-table.reference-look .portrait-seat.left {
+  left: clamp(54px, 6vw, 112px);
+}
+
+.ninety-nine-table.reference-look .portrait-seat.right {
+  right: clamp(54px, 6vw, 112px);
+}
+
+.ninety-nine-table.reference-look .score-zone {
+  top: 310px;
+}
+
+.ninety-nine-table.reference-look .turn-callout {
+  top: 472px;
+}
+
+.ninety-nine-table.reference-look .deck-pile {
+  right: clamp(220px, 22vw, 390px);
+  bottom: 188px;
+}
+
+.ninety-nine-table.reference-look .player-zone.on-table {
+  bottom: 30px;
+  width: min(820px, 82vw);
+}
+
+.ninety-nine-table.reference-look .fan-hand {
+  min-height: 238px;
+  padding-top: 40px;
+}
+
+.ninety-nine-table.reference-look .bottom-command-bar {
+  width: min(100%, 1680px);
+  margin: 20px auto 0;
+  padding: 0 clamp(18px, 3vw, 48px);
+  justify-content: end;
+}
+
+.ninety-nine-table.reference-look .special-card-panel.pill-panel,
+.ninety-nine-table.reference-look .special-card-panel.choice-panel {
+  min-height: 76px;
+}
+
+@media (max-width: 1000px) {
+  .ninety-nine-table.reference-look .felt-table {
+    max-width: calc(100vw - 28px);
+    min-height: 1010px;
+  }
+
+  .ninety-nine-table.reference-look .portrait-seat.top {
+    top: 30px;
+  }
+
+  .ninety-nine-table.reference-look .portrait-seat.left {
+    top: 194px;
+    left: 50%;
+  }
+
+  .ninety-nine-table.reference-look .portrait-seat.right {
+    top: 358px;
+    right: auto;
+    left: 50%;
+  }
+
+  .ninety-nine-table.reference-look .score-zone {
+    top: 540px;
+  }
+
+  .ninety-nine-table.reference-look .turn-callout {
+    top: 700px;
+  }
+
+  .ninety-nine-table.reference-look .player-zone.on-table {
+    bottom: 32px;
+    width: min(760px, 94vw);
+  }
+}
+
+@media (max-width: 640px) {
+  .ninety-nine-table.reference-look .felt-table {
+    max-width: calc(100vw - 16px);
+    min-height: 930px;
+  }
+
+  .ninety-nine-table.reference-look .score-zone {
+    top: 520px;
+  }
+
+  .ninety-nine-table.reference-look .turn-callout {
+    top: 650px;
+  }
+
+  .ninety-nine-table.reference-look .player-zone.on-table {
+    bottom: 26px;
+  }
+
+  .ninety-nine-table.reference-look .fan-hand {
+    min-height: 178px;
+    padding-top: 30px;
+  }
+
+  .ninety-nine-table.reference-look .bottom-command-bar {
+    margin-top: 16px;
+    padding-inline: 4px;
+  }
+}
+
+
+/* Heart Attack multiplayer client controls */
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 4px solid var(--brand-black, #080808);
+  border-radius: 999px;
+  background: white;
+  box-shadow: 4px 4px 0 var(--brand-black, #080808);
+  font-weight: 1000;
+}
+
+.connection-pill.connected {
+  background: #45c66b;
+}
+
+.connection-pill.error,
+.connection-pill.closed {
+  color: white;
+  background: #ff554b;
+}
+
+.connected-controls {
+  align-items: center;
+}
+
+.connected-controls small {
+  font-weight: 900;
+  opacity: 0.72;
+}
+
+.server-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.compact-action {
+  min-height: 58px !important;
+  min-width: 138px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 4px solid var(--brand-black, #080808);
+  border-radius: 18px;
+  box-shadow: 5px 5px 0 var(--brand-black, #080808);
+  font-size: 1.18rem !important;
+  font-weight: 1000;
+}
+
+.compact-action:disabled,
+.server-action-row button:disabled {
+  cursor: not-allowed;
+  color: rgba(8, 8, 8, 0.54);
+  background: #d7d1c1;
+  box-shadow: 3px 3px 0 var(--brand-black, #080808);
+  transform: translate(2px, 2px);
+}
+
+.opponent-seat.disconnected {
+  opacity: 0.65;
+  filter: grayscale(0.35);
+}
+
+@media (max-width: 760px) {
+  .server-action-row,
+  .connected-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .server-action-row button,
+  .compact-action {
+    width: 100%;
+  }
+}
+
+/* Heart Attack focused table controls */
+.heart-auto-table .heart-status,
+.heart-auto-table .auto-timer {
+  display: none;
+}
+
+.heart-auto-table .center-slap-button {
+  grid-column: 1 / -1;
+  justify-self: center;
+  min-width: 220px;
+  min-height: 82px;
+  margin-top: 2px;
+  font-size: clamp(1.35rem, 2.8vw, 2.1rem);
+  border-width: 5px;
+  border-radius: 28px;
+  transform: rotate(-1deg);
+}
+
+.heart-slap-dock {
+  display: flex;
+  justify-content: center;
+  width: min(100%, 1680px);
+  max-width: calc(100vw - clamp(48px, 7vw, 112px));
+  margin: -4px auto 0;
+  padding-bottom: 10px;
+}
+
+.heart-slap-dock .docked-slap-button {
+  min-width: min(420px, 52vw);
+  min-height: 96px;
+  border-width: 6px;
+  border-radius: 28px;
+  font-size: clamp(1.65rem, 3.2vw, 2.7rem);
+  transform: none;
+}
+
+.heart-slap-dock .docked-slap-button:not(:disabled):hover {
+  transform: translateY(-3px);
+}
+
+.heart-auto-table .center-slap-button:not(:disabled):hover {
+  transform: translateY(-3px) rotate(-1deg);
+}
+
+.heart-auto-table.phase-round-result .center-slap-button {
+  opacity: 0.35;
+}
+
+.penalty-alert.show {
+  animation-duration: 5s;
+}
+
+@media (max-width: 760px) {
+  .heart-auto-table .center-slap-button {
+    width: auto;
+    min-width: 170px;
+    min-height: 64px;
+  }
+
+  .heart-slap-dock {
+    max-width: calc(100vw - 20px);
+    margin-top: 10px;
+  }
+
+  .heart-slap-dock .docked-slap-button {
+    width: min(100%, 320px);
+    min-width: 0;
+    min-height: 76px;
+  }
+}
+
+
+/* Heart Attack waiting room */
+.heart-waiting-room {
+  width: min(100%, 1180px);
+  margin: 24px auto 0;
+  padding: clamp(18px, 3vw, 34px);
+  border: 6px solid var(--brand-black, var(--ink));
+  border-radius: 34px;
+  color: white;
+  background: var(--brand-blue, var(--blue));
+  box-shadow: 10px 10px 0 var(--brand-black, var(--ink));
+}
+
+.waiting-room-title {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.waiting-room-title h1 {
+  margin: 0;
+  color: white;
+  font-size: clamp(2.6rem, 7vw, 5.2rem);
+  line-height: 0.95;
+  text-shadow: 4px 4px 0 var(--brand-black, var(--ink));
+}
+
+.waiting-room-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 22px 0;
+  flex-wrap: wrap;
+}
+
+.waiting-room-code span {
+  min-width: min(100%, 380px);
+  padding: 12px 22px;
+  border: 5px solid var(--brand-black, var(--ink));
+  background: white;
+  color: var(--brand-black, var(--ink));
+  box-shadow: 6px 6px 0 var(--brand-black, var(--ink));
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  font-weight: 1000;
+  text-align: center;
+}
+
+.waiting-room-code button,
+.ready-button {
+  min-height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 4px solid var(--brand-black, var(--ink));
+  border-radius: 16px;
+  background: var(--brand-yellow, var(--yellow));
+  color: var(--brand-black, var(--ink));
+  padding: 10px 18px;
+  box-shadow: 5px 5px 0 var(--brand-black, var(--ink));
+  cursor: pointer;
+  font-weight: 1000;
+}
+
+.heart-lobby-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.heart-lobby-seat {
+  min-height: 150px;
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  padding: 16px;
+  border: 5px solid var(--brand-black, var(--ink));
+  background: var(--brand-cream, var(--cream));
+  color: var(--brand-black, var(--ink));
+  box-shadow: 6px 6px 0 var(--brand-black, var(--ink));
+}
+
+.heart-lobby-seat span,
+.heart-lobby-seat em {
+  font-weight: 900;
+}
+
+.heart-lobby-seat strong {
+  font-size: 1.55rem;
+  font-weight: 1000;
+}
+
+.heart-lobby-seat b {
+  width: fit-content;
+  padding: 5px 10px;
+  border: 3px solid var(--brand-black, var(--ink));
+  background: #ddd;
+}
+
+.heart-lobby-seat.ready b,
+.ready-button.is-ready {
+  background: #45c66b;
+}
+
+.heart-lobby-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.waiting-room-hint,
+.connection-note {
+  margin: 18px 0 0;
+  font-weight: 900;
+}
+
+.connection-note.error,
+.connection-note.closed {
+  color: #ffefe9;
+}
+
+@media (max-width: 720px) {
+  .waiting-room-title {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .waiting-room-code button,
+  .heart-lobby-actions button,
+  .ready-button {
+    width: 100%;
+  }
+}
+
+
+/* Heart Attack lobby player cards */
+.heart-lobby-list {
+  grid-template-columns: repeat(auto-fit, minmax(142px, 190px));
+  align-items: stretch;
+}
+
+.heart-lobby-seat {
+  position: relative;
+  min-height: 218px;
+  align-content: end;
+  justify-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(20, 85, 255, 0.12), transparent 3.8rem),
+    #fffdf6;
+  text-align: center;
+}
+
+.heart-lobby-seat::before,
+.heart-lobby-seat::after {
+  content: "\9B25";
+  position: absolute;
+  color: rgba(20, 85, 255, 0.18);
+  font-size: 5rem;
+  line-height: 1;
+  font-weight: 1000;
+}
+
+.heart-lobby-seat::before {
+  top: 28px;
+  left: 18px;
+}
+
+.heart-lobby-seat::after {
+  right: 18px;
+  bottom: 28px;
+  transform: rotate(180deg);
+}
+
+.heart-lobby-seat .lobby-card-corner {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--brand-black, var(--ink));
+  border-radius: 999px;
+  background: var(--brand-yellow, var(--yellow));
+  font-size: 1rem;
+}
+
+.heart-lobby-seat strong,
+.heart-lobby-seat em,
+.heart-lobby-seat b {
+  position: relative;
+  z-index: 1;
+}
+
+.heart-lobby-seat strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.heart-lobby-seat.ready {
+  outline: 5px solid #45c66b;
+  outline-offset: -10px;
+}
+
+.heart-lobby-seat.ready b {
+  background: #45c66b;
+}
+

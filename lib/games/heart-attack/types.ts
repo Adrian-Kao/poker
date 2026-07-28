@@ -13,7 +13,7 @@ export interface HeartAttackCard {
 export type HeartAttackPhase = "waiting" | "playing" | "slap-window" | "round-result" | "finished";
 export type HeartAttackPlayerType = "human" | "bot";
 export type BotDifficulty = "easy" | "normal" | "hard";
-export type HeartAttackPlayerStatus = "playing" | "pendingFinish" | "winner";
+export type HeartAttackPlayerStatus = "playing" | "pendingFinish" | "winner" | "loser";
 
 export interface HeartAttackPlayer {
   id: string;
@@ -69,6 +69,7 @@ export interface HeartAttackState {
   roundResult: RoundResult | null;
   penaltyResult: PenaltyResult | null;
   winnerId: string | null;
+  winnerIds: string[];
   turnNumber: number;
   autoPlayIntervalMs: number;
   nextAutoPlayAt: number | null;

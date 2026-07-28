@@ -1,9 +1,11 @@
 export const HEART_ATTACK_HAND_SIZE = 20;
 export const HEART_ATTACK_CALL_MAX = 13;
 export const SLAP_WINDOW_MS = 1500;
-export const AUTO_PLAY_INTERVAL_MS = 800;
-export const PENALTY_ALERT_MS = 1800;
+export const AUTO_PLAY_INTERVAL_MS = 900;
+export const PENALTY_ALERT_MS = 5000;
 export const ROUND_RESULT_DISPLAY_MS = PENALTY_ALERT_MS;
+export const RESULT_NOTICE_MS = PENALTY_ALERT_MS;
+export const RECONNECT_WINDOW_SECONDS = 30;
 
 export const botSettings = {
   easy: {

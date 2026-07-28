@@ -1,69 +1,35 @@
 "use client";
 
-import { Bot, Check, Copy, DoorOpen, Hash, Info, Play, Plus, ShieldCheck, Users, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Bot, Check, DoorOpen, Hash, Info, Play, Plus, ShieldCheck, Users, X } from "lucide-react";
+import { useState } from "react";
 import { games, type Game } from "./data/games";
 
-const seatNames = ["阿哲", "小萱", "冠宇", "怡君", "志明", "美玲"];
+const difficultyOptions = ["簡單", "普通", "困難"];
 
 export default function Home() {
   const [selectedGameId, setSelectedGameId] = useState("ninety-nine");
   const [nickname, setNickname] = useState("阿德");
-  const [roomCode, setRoomCode] = useState("168299");
+  const [joinCode, setJoinCode] = useState("");
   const [targetPlayers, setTargetPlayers] = useState(4);
   const [botCount, setBotCount] = useState(1);
   const [difficulty, setDifficulty] = useState("普通");
-  const [copied, setCopied] = useState(false);
-  const [ready, setReady] = useState(true);
 
   const game = games.find((item) => item.id === selectedGameId) ?? games[3];
   const humanPlayers = Math.max(1, targetPlayers - (game.bots ? botCount : 0));
-  const canStartRealOnly = !game.realOnly || humanPlayers >= targetPlayers;
-  const codeIsValid = /^\d{6}$/.test(roomCode);
-
-  const seats = useMemo(() => {
-    const humans = Array.from({ length: humanPlayers }, (_, index) => ({
-      name: index === 0 ? nickname || "房主" : seatNames[index] ?? `玩家 ${index + 1}`,
-      type: index === 0 ? "房主" : "真人",
-      ready: index < 2 || ready
-    }));
-
-    const bots = game.bots
-      ? Array.from({ length: botCount }, (_, index) => ({
-          name: `電腦 ${index + 1}`,
-          type: difficulty,
-          ready: true
-        }))
-      : [];
-
-    const waiting = Array.from({ length: Math.max(0, targetPlayers - humans.length - bots.length) }, (_, index) => ({
-      name: `等待座位 ${index + 1}`,
-      type: "邀請中",
-      ready: false
-    }));
-
-    return [...humans, ...bots, ...waiting];
-  }, [botCount, difficulty, game.bots, humanPlayers, nickname, ready, targetPlayers]);
+  const canCreate = !game.realOnly || humanPlayers >= targetPlayers;
+  const codeIsValid = /^\d{6}$/.test(joinCode);
 
   function selectGame(nextGame: Game) {
     setSelectedGameId(nextGame.id);
     setTargetPlayers(Math.min(Math.max(targetPlayers, nextGame.min), nextGame.max));
-    if (!nextGame.bots) {
-      setBotCount(0);
-    }
+    if (!nextGame.bots) setBotCount(0);
   }
 
-  function copyCode() {
-    navigator.clipboard?.writeText(roomCode).catch(() => undefined);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1200);
-  }
-
-  function startGame() {
-    if (!canStartRealOnly) return;
+  function createRoom() {
+    if (!canCreate) return;
     const params = new URLSearchParams({
-      room: roomCode,
-      nick: nickname || "玩家",
+      mode: "create",
+      name: nickname || "玩家",
       players: String(targetPlayers),
       bots: String(game.bots ? botCount : 0),
       difficulty
@@ -71,15 +37,26 @@ export default function Home() {
     window.location.href = `/games/${game.slug}?${params.toString()}`;
   }
 
+  function joinRoom() {
+    if (!codeIsValid) return;
+    const params = new URLSearchParams({
+      mode: "join",
+      room: joinCode,
+      name: nickname || "玩家"
+    });
+
+    // Current server-backed private rooms are Heart Attack rooms. Joining by room
+    // code should not depend on whichever game card is selected on the homepage.
+    window.location.href = `/games/heart-attack?${params.toString()}`;
+  }
+
   return (
     <main className="site-shell">
       <section className="hero-grid" aria-labelledby="site-title">
         <div className="hero-copy">
-          <p className="stamp">台灣撲克牌線上房</p>
-          <h1 id="site-title">誒!打牌阿!</h1>
-          <p className="hero-text">
-            輸入暱稱就能開私人房，六位數房號分享給朋友。
-          </p>
+          <p className="stamp">台味朋友撲克房</p>
+          <h1 id="site-title">鬥陣來一局</h1>
+          <p className="hero-text">輸入暱稱就能建立私人房間，用六位數房號邀請朋友加入。純娛樂、無下注、無商城。</p>
           <div className="hero-actions" aria-label="主要操作">
             <a className="primary-action" href="#create-room">
               <Plus size={22} />
@@ -87,17 +64,17 @@ export default function Home() {
             </a>
             <a className="secondary-action" href="#join-room">
               <Hash size={22} />
-              輸入房號
+              加入房間
             </a>
           </div>
         </div>
 
-        <div className="poster" aria-label="朋友聚會撲克牌插圖">
+        <div className="poster" aria-label="朋友撲克牌插圖">
           <div className="poster-sun">純娛樂</div>
           <div className="table-scene">
             <span className="card-chip blue">排七</span>
             <span className="card-chip yellow">九九</span>
-            <span className="card-chip cream">大老二</span>
+            <span className="card-chip cream">心臟病</span>
             <div className="hand-row">
               <span>J</span>
               <span>Q</span>
@@ -111,38 +88,33 @@ export default function Home() {
       <section className="notice-band" aria-label="產品定位">
         <div>
           <ShieldCheck />
-          不下注、不儲值、不做娛樂城
+          純娛樂，沒有下注、儲值或籌碼設計
         </div>
         <div>
           <DoorOpen />
-          私人房間，開局後禁止加入
+          私人房間開局後關閉，不允許中途加入
         </div>
         <div>
           <Bot />
-          電腦玩家不偷看隱藏手牌
+          支援補位的遊戲才會顯示電腦玩家
         </div>
       </section>
 
       <section className="section-block" aria-labelledby="games-title">
         <div className="section-heading">
-          <p className="stamp">七款台灣玩法</p>
-          <h2 id="games-title">先選今天要玩哪一局</h2>
+          <p className="stamp">七款遊戲</p>
+          <h2 id="games-title">先選今天要玩的牌局</h2>
         </div>
         <div className="game-grid">
           {games.map((item) => (
-            <button
-              className={`game-card ${item.id === game.id ? "active" : ""}`}
-              key={item.id}
-              onClick={() => selectGame(item)}
-              type="button"
-            >
+            <button className={`game-card ${item.id === game.id ? "active" : ""}`} key={item.id} onClick={() => selectGame(item)} type="button">
               <span className="game-name">{item.name}</span>
               <span className="game-players">
                 <Users size={17} />
                 {item.players}
               </span>
               <span className="game-note">{item.note}</span>
-              {item.realOnly && <strong className="real-only">只限真人</strong>}
+              {item.realOnly && <strong className="real-only">只限真人遊玩</strong>}
             </button>
           ))}
         </div>
@@ -173,13 +145,7 @@ export default function Home() {
 
           <label>
             遊戲人數
-            <input
-              type="range"
-              min={game.min}
-              max={game.max}
-              value={targetPlayers}
-              onChange={(event) => setTargetPlayers(Number(event.target.value))}
-            />
+            <input type="range" min={game.min} max={game.max} value={targetPlayers} onChange={(event) => setTargetPlayers(Number(event.target.value))} />
             <span className="range-value">{targetPlayers} 人</span>
           </label>
 
@@ -187,23 +153,12 @@ export default function Home() {
             <>
               <label>
                 電腦玩家
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(0, targetPlayers - 1)}
-                  value={botCount}
-                  onChange={(event) => setBotCount(Number(event.target.value))}
-                />
+                <input type="range" min={0} max={Math.max(0, targetPlayers - 1)} value={botCount} onChange={(event) => setBotCount(Number(event.target.value))} />
                 <span className="range-value">{botCount} 位</span>
               </label>
               <div className="segmented" aria-label="電腦難度">
-                {["簡單", "普通", "困難"].map((level) => (
-                  <button
-                    className={difficulty === level ? "selected" : ""}
-                    key={level}
-                    onClick={() => setDifficulty(level)}
-                    type="button"
-                  >
+                {difficultyOptions.map((level) => (
+                  <button className={difficulty === level ? "selected" : ""} key={level} onClick={() => setDifficulty(level)} type="button">
                     {level}
                   </button>
                 ))}
@@ -212,19 +167,21 @@ export default function Home() {
           ) : (
             <div className="rule-callout strong">
               <X size={20} />
-              {game.name} 只開放真人玩家，真人到齊前不能開始。
+              {game.name} 只開放真人玩家，不會顯示電腦補位選項。
             </div>
           )}
 
           <div className="summary-box">
             <strong>{game.name}</strong>
-            <span>{targetPlayers} 人房，{humanPlayers} 位真人，{game.bots ? `${botCount} 位電腦` : "只限真人"}</span>
-            <span>不開放觀戰，確認開始後會前往 {game.name} 專屬牌桌。</span>
+            <span>
+              {targetPlayers} 人房，目前設定 {humanPlayers} 位真人{game.bots ? `、${botCount} 位電腦` : "。"}
+            </span>
+            <span>房號會由伺服器自動產生六位數，建立後直接進入等待室。</span>
           </div>
 
-          <button className="confirm-room-button" disabled={!canStartRealOnly} onClick={startGame} type="button">
+          <button className="confirm-room-button" disabled={!canCreate} onClick={createRoom} type="button">
             <Play size={20} />
-            確認房間事項，前往{game.name}
+            確認房間事項，前往等待室
           </button>
         </div>
 
@@ -241,12 +198,7 @@ export default function Home() {
 
           <label>
             六位數房號
-            <input
-              inputMode="numeric"
-              maxLength={6}
-              value={roomCode}
-              onChange={(event) => setRoomCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-            />
+            <input inputMode="numeric" maxLength={6} value={joinCode} onChange={(event) => setJoinCode(event.target.value.replace(/\D/g, "").slice(0, 6))} />
           </label>
 
           <div className={`validation ${codeIsValid ? "ok" : "bad"}`}>
@@ -256,44 +208,12 @@ export default function Home() {
 
           <div className="rule-callout">
             <Info size={20} />
-            私人房間開始後會關閉座位，不允許中途加入，也沒有觀戰模式。
+            加入房間只需要房號，不受目前選擇的遊戲卡片影響。
           </div>
-        </div>
-      </section>
 
-      <section className="room-stage" aria-labelledby="lobby-title">
-        <div className="section-heading">
-          <p className="stamp">等待室</p>
-          <h2 id="lobby-title">{game.name} 房間</h2>
-        </div>
-
-        <div className="room-code">
-          <span>{roomCode}</span>
-          <button onClick={copyCode} type="button" aria-label="複製房號">
-            <Copy size={19} />
-            {copied ? "已複製" : "複製"}
-          </button>
-        </div>
-
-        <div className="seat-grid">
-          {seats.map((seat, index) => (
-            <div className={`seat-card ${seat.type === "邀請中" ? "waiting" : ""}`} key={`${seat.name}-${index}`}>
-              <span className="seat-number">座位 {index + 1}</span>
-              <strong>{seat.name}</strong>
-              <span>{seat.type}</span>
-              <em>{seat.ready ? "已準備" : "等待加入"}</em>
-            </div>
-          ))}
-        </div>
-
-        <div className="lobby-actions">
-          <label className="ready-toggle">
-            <input checked={ready} onChange={(event) => setReady(event.target.checked)} type="checkbox" />
-            我的準備狀態
-          </label>
-          <button className="start-button" disabled={!canStartRealOnly} onClick={startGame} type="button">
-            <Play size={20} />
-            {canStartRealOnly ? "開始遊戲" : "真人未到齊"}
+          <button className="confirm-room-button" disabled={!codeIsValid} onClick={joinRoom} type="button">
+            <Hash size={20} />
+            加入房間
           </button>
         </div>
       </section>
