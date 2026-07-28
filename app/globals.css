@@ -4225,3 +4225,521 @@ input[type="range"] {
   background: #45c66b;
 }
 
+.ninety-online-shell {
+  min-height: 100vh;
+  padding: 24px clamp(16px, 4vw, 56px) max(28px, env(safe-area-inset-bottom));
+  background: var(--cream);
+  color: var(--black);
+  touch-action: manipulation;
+}
+
+.ninety-waiting-room,
+.ninety-online-table {
+  width: min(1420px, 100%);
+  margin: 28px auto 0;
+  border: 6px solid var(--black);
+  box-shadow: 12px 12px 0 var(--black);
+  background: var(--blue);
+}
+
+.ninety-waiting-room {
+  border-radius: 32px;
+  padding: clamp(22px, 4vw, 48px);
+  color: white;
+}
+
+.ninety-lobby-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin: 22px 0;
+}
+
+.bot-button {
+  background: var(--cream);
+}
+
+.ninety-online-table {
+  position: relative;
+  min-height: 710px;
+  overflow: hidden;
+  border-radius: 48% / 22%;
+  background:
+    radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.14), transparent 22%),
+    linear-gradient(135deg, #2f66ff, var(--blue));
+}
+
+.ninety-online-table .rival-seat {
+  position: absolute;
+  z-index: 2;
+}
+
+.ninety-online-table .rival-seat.top {
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ninety-online-table .rival-seat.left {
+  left: 70px;
+  top: 330px;
+}
+
+.ninety-online-table .rival-seat.right {
+  right: 70px;
+  top: 330px;
+}
+
+.ninety-online-table .rival-seat.upperLeft {
+  left: 220px;
+  top: 118px;
+}
+
+.ninety-online-table .rival-seat.upperRight {
+  right: 220px;
+  top: 118px;
+}
+
+.ninety-online-table .rival-seat.active,
+.ninety-self-zone .player-badge.active {
+  outline: 6px solid var(--yellow);
+  outline-offset: 5px;
+}
+
+.ninety-online-table .rival-seat.out {
+  filter: grayscale(1);
+  opacity: 0.62;
+}
+
+.ninety-center {
+  position: absolute;
+  inset: 44% auto auto 50%;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  transform: translate(-50%, -50%);
+}
+
+.total-hub {
+  display: grid;
+  min-width: 270px;
+  padding: 16px 26px 12px;
+  border: 6px solid var(--black);
+  border-radius: 26px;
+  background: var(--yellow);
+  box-shadow: 8px 8px 0 var(--black);
+  text-align: center;
+}
+
+.total-hub span,
+.total-hub em {
+  font-weight: 950;
+}
+
+.total-hub strong {
+  font-size: clamp(72px, 9vw, 132px);
+  line-height: 0.85;
+}
+
+.ninety-center .last-card-stack {
+  position: absolute;
+  left: calc(100% + 18px);
+  top: 32px;
+}
+
+.turn-callout.online {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  border: 5px solid var(--black);
+  border-radius: 999px;
+  background: var(--black);
+  color: white;
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.28);
+}
+
+.turn-callout.online em,
+.turn-clock {
+  color: var(--yellow);
+}
+
+.pile-count,
+.last-effect {
+  padding: 7px 14px;
+  border: 4px solid var(--black);
+  border-radius: 999px;
+  background: var(--cream);
+  font-weight: 950;
+}
+
+.last-effect {
+  max-width: 420px;
+  text-align: center;
+}
+
+.ninety-self-zone {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  z-index: 5;
+  transform: translateX(-50%);
+}
+
+.online-hand .ninety-nine-card.disabled {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+}
+
+.online-hand .ninety-nine-card.selected {
+  transform: translateY(-28px) rotate(var(--fan-rotate, 0deg));
+}
+
+.ninety-command-bar {
+  width: min(980px, calc(100% - 28px));
+  margin: 22px auto 0;
+}
+
+.target-panel {
+  flex-wrap: wrap;
+}
+
+.target-panel button {
+  min-width: 112px;
+}
+
+.ninety-result-banner {
+  position: fixed;
+  inset: auto 50% 34px auto;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 24px;
+  border: 6px solid var(--black);
+  border-radius: 24px;
+  background: var(--yellow);
+  box-shadow: 8px 8px 0 var(--black);
+  transform: translateX(50%);
+}
+
+.ninety-result-banner strong {
+  font-size: clamp(24px, 4vw, 42px);
+}
+
+.ninety-result-banner button {
+  border: 4px solid var(--black);
+  border-radius: 999px;
+  background: white;
+  padding: 10px 16px;
+  font-weight: 950;
+}
+
+@media (max-width: 900px) {
+  .ninety-online-shell {
+    padding: 14px 10px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .ninety-online-table {
+    min-height: 650px;
+    border-radius: 34px;
+  }
+
+  .ninety-online-table .rival-seat.top {
+    top: 18px;
+  }
+
+  .ninety-online-table .rival-seat.left {
+    left: 12px;
+    top: 178px;
+  }
+
+  .ninety-online-table .rival-seat.right {
+    right: 12px;
+    top: 178px;
+  }
+
+  .ninety-online-table .rival-seat.upperLeft,
+  .ninety-online-table .rival-seat.upperRight {
+    display: none;
+  }
+
+  .ninety-center {
+    top: 43%;
+  }
+
+  .total-hub {
+    min-width: 205px;
+  }
+
+  .ninety-center .last-card-stack {
+    position: static;
+  }
+
+  .ninety-self-zone {
+    bottom: 24px;
+  }
+
+  .ninety-command-bar {
+    position: sticky;
+    bottom: 8px;
+    z-index: 12;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ninety-online-shell *,
+  .ninety-online-shell *::before,
+  .ninety-online-shell *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Ninety-nine multiplayer layout refinements */
+.ninety-online-shell {
+  padding-inline: clamp(18px, 3vw, 44px);
+}
+
+.ninety-waiting-room {
+  width: min(100%, 1180px);
+  margin-top: 24px;
+  padding: clamp(18px, 3vw, 34px);
+  border-radius: 34px;
+  box-shadow: 10px 10px 0 var(--brand-black, var(--ink));
+}
+
+.ninety-waiting-room .waiting-room-title h1 {
+  font-size: clamp(2.6rem, 7vw, 5.2rem);
+}
+
+.ninety-lobby-list {
+  grid-template-columns: repeat(auto-fit, minmax(142px, 190px));
+  justify-content: start;
+  align-items: stretch;
+  margin: 18px 0 0;
+}
+
+.ninety-online-table {
+  width: min(1540px, 100%);
+  min-height: clamp(760px, 72vh, 900px);
+  margin-top: 22px;
+  overflow: visible;
+  border-radius: 82px;
+  box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.34);
+}
+
+.ninety-online-table .rival-seat {
+  min-width: 210px;
+  transform: none;
+}
+
+.ninety-online-table .rival-seat.top {
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ninety-online-table .rival-seat.left {
+  left: 54px;
+  top: 310px;
+}
+
+.ninety-online-table .rival-seat.right {
+  right: 54px;
+  top: 310px;
+}
+
+.ninety-online-table .rival-seat.upperLeft {
+  left: 250px;
+  top: 120px;
+}
+
+.ninety-online-table .rival-seat.upperRight {
+  right: 250px;
+  top: 120px;
+}
+
+.ninety-center {
+  top: 40%;
+  gap: 10px;
+}
+
+.total-hub {
+  min-width: clamp(230px, 20vw, 310px);
+  padding: 14px 24px 12px;
+}
+
+.total-hub strong {
+  font-size: clamp(70px, 7vw, 116px);
+}
+
+.ninety-center .last-card-stack {
+  left: calc(100% + 30px);
+  top: 22px;
+}
+
+.turn-callout.online {
+  min-width: 300px;
+  justify-content: center;
+}
+
+.pile-count,
+.last-effect {
+  max-width: min(440px, 80vw);
+  white-space: normal;
+  text-align: center;
+}
+
+.ninety-self-zone {
+  bottom: 70px;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.ninety-self-zone .player-badge {
+  position: relative;
+  z-index: 2;
+}
+
+.online-hand.fan-hand {
+  min-height: 230px;
+  padding: 18px 12px 0;
+  gap: 0;
+}
+
+.online-hand .ninety-nine-card.face-card {
+  flex-basis: clamp(104px, 9vw, 132px);
+  width: clamp(104px, 9vw, 132px);
+  margin-inline: clamp(-12px, -1vw, -6px);
+}
+
+.online-hand .card-face {
+  width: clamp(104px, 9vw, 132px);
+}
+
+.online-hand .ninety-nine-card.selected {
+  transform: translateY(-30px);
+}
+
+.ninety-command-bar {
+  width: min(980px, calc(100% - 32px));
+  margin-top: 28px;
+  position: relative;
+  z-index: 6;
+}
+
+.ninety-command-bar .special-card-panel {
+  min-height: 86px;
+  justify-content: center;
+}
+
+.ninety-command-bar .choice-panel {
+  width: min(420px, 100%);
+  margin-inline: auto;
+}
+
+.ninety-command-bar .choice-panel button {
+  min-width: 160px;
+}
+
+@media (max-width: 1100px) {
+  .ninety-online-table {
+    min-height: 760px;
+    border-radius: 54px;
+  }
+
+  .ninety-online-table .rival-seat.upperLeft,
+  .ninety-online-table .rival-seat.upperRight {
+    display: none;
+  }
+
+  .ninety-online-table .rival-seat.left {
+    left: 24px;
+    top: 255px;
+  }
+
+  .ninety-online-table .rival-seat.right {
+    right: 24px;
+    top: 255px;
+  }
+
+  .ninety-center {
+    top: 39%;
+  }
+}
+
+@media (max-width: 760px) {
+  .ninety-waiting-room {
+    min-height: auto;
+  }
+
+  .ninety-lobby-list {
+    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  }
+
+  .ninety-online-table {
+    min-height: 700px;
+    border-width: 5px;
+    border-radius: 32px;
+  }
+
+  .ninety-online-table .rival-seat {
+    min-width: 142px;
+    scale: 0.82;
+    transform-origin: top center;
+  }
+
+  .ninety-online-table .rival-seat.top {
+    top: 14px;
+  }
+
+  .ninety-online-table .rival-seat.left {
+    left: -12px;
+    top: 154px;
+  }
+
+  .ninety-online-table .rival-seat.right {
+    right: -12px;
+    top: 154px;
+  }
+
+  .ninety-center {
+    top: 42%;
+  }
+
+  .turn-callout.online {
+    min-width: 0;
+    width: min(310px, 88vw);
+    flex-wrap: wrap;
+  }
+
+  .ninety-self-zone {
+    bottom: 42px;
+    width: 100%;
+  }
+
+  .online-hand.fan-hand {
+    min-height: 180px;
+    transform: scale(0.88);
+    transform-origin: bottom center;
+  }
+
+  .online-hand .ninety-nine-card.face-card {
+    margin-inline: -18px;
+  }
+
+  .ninety-command-bar .choice-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ninety-command-bar .choice-panel button {
+    min-width: 0;
+  }
+}
+
+
