@@ -96,11 +96,11 @@ test("autoplay interval speeds up every 13 played cards down to 0.5 seconds", ()
   assert.equal(getAutoPlayIntervalMs(130), 500);
 });
 
-test("matching auto-played card starts a dead-card window and pauses autoplay", () => {
+test("matching auto-played card opens a slap window without pausing autoplay", () => {
   const next = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1900);
   assert.equal(next.phase, "playing");
-  assert.equal(next.slapDeadline, 3400);
-  assert.equal(next.nextAutoPlayAt, null);
+  assert.equal(next.slapDeadline, 2800);
+  assert.equal(next.nextAutoPlayAt, 2800);
 });
 
 test("non-matching auto-played card schedules next auto play", () => {
@@ -119,14 +119,14 @@ test("valid slap is recorded until the slap window resolves", () => {
   const next = submitSlap(state, "p2", 1900);
   assert.equal(next.phase, "playing");
   assert.equal(next.slapResponses.length, 1);
-  assert.equal(next.nextAutoPlayAt, null);
+  assert.equal(next.nextAutoPlayAt, 2800);
 });
 
 test("slowest valid slapper receives the center pile penalty", () => {
   let state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1900);
   state = submitSlap(state, "p2", 1900);
   state = submitSlap(state, "p3", 2100);
-  const next = resolveSlapWindow(state, 3400);
+  const next = resolveSlapWindow(state, 2800);
   assert.equal(next.roundResult?.reason, "slowest-slap");
   assert.equal(next.roundResult?.penaltyPlayerId, "p3");
   assert.equal(next.penaltyResult?.reason, "slowest-slap");
@@ -134,7 +134,7 @@ test("slowest valid slapper receives the center pile penalty", () => {
   assert.equal(next.penaltyResult?.cardsTaken, 1);
   assert.deepEqual(next.penaltyResult?.cardIds, ["deck-1-clubs-7"]);
   assert.equal(next.penaltyResult?.responseTimeMs, 200);
-  assert.equal(next.nextAutoPlayAt, 3400 + PENALTY_ALERT_MS);
+  assert.equal(next.nextAutoPlayAt, 2800 + PENALTY_ALERT_MS);
 });
 
 test("false slap collects center pile as penalty", () => {
@@ -150,40 +150,41 @@ test("false slap collects center pile as penalty", () => {
 
 test("late slap is treated as false slap", () => {
   const state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1900);
-  const next = submitSlap(state, "p2", 3500);
+  const next = submitSlap(state, "p2", 2801);
   assert.equal(next.roundResult?.reason, "false-slap");
 });
 
 test("missed slap window clears and continues without collecting cards", () => {
   const state = advanceAutoPlay(stateWithDecks(7, [["7", "8"], ["2"], ["3"]], 1000), 1900);
-  const next = resolveSlapWindow(state, 3400);
+  const next = resolveSlapWindow(state, 2800);
   assert.equal(next.roundResult, null);
   assert.equal(next.penaltyResult, null);
   assert.equal(next.centerPile.length, 1);
   assert.equal(next.slapDeadline, null);
-  assert.equal(next.nextAutoPlayAt, 4300);
+  assert.equal(next.nextAutoPlayAt, 2800);
 });
 
-test("dead-card window blocks the next auto-played card until resolved", () => {
+test("missed slap window can resolve and immediately continue autoplay", () => {
   const state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1900);
-  const next = advanceAutoPlay(state, 2800);
-  assert.equal(next.phase, "playing");
-  assert.equal(next.centerPile.length, 1);
+  const resolved = resolveSlapWindow(state, 2800);
+  const next = advanceAutoPlay(resolved, 2800);
+  assert.equal(next.centerPile.length, 2);
+  assert.equal(next.centerPile.at(-1)?.calledNumber, 8);
 });
 
 test("round-result does not auto-play until display time passes", () => {
   const state = submitSlap(advanceAutoPlay(stateWithDecks(7, [["7", "8"], ["2"], ["3"]], 1000), 1900), "p2", 1900);
-  const result = resolveSlapWindow(state, 3400);
+  const result = resolveSlapWindow(state, 2800);
   assert.equal(advanceAutoPlay(result, 5199).phase, "round-result");
 });
 
 test("round-result resumes autoplay after display time", () => {
   const state = submitSlap(advanceAutoPlay(stateWithDecks(7, [["7", "8"], ["2"], ["3"]], 1000), 1900), "p2", 1900);
-  const result = resolveSlapWindow(state, 3400);
-  const next = resolveRoundResult(result, 8400);
+  const result = resolveSlapWindow(state, 2800);
+  const next = resolveRoundResult(result, 7800);
   assert.equal(next.phase, "playing");
   assert.equal(next.penaltyResult, null);
-  assert.equal(next.nextAutoPlayAt, 9300);
+  assert.equal(next.nextAutoPlayAt, 8700);
 });
 
 test("round-result ignores additional slap input", () => {
@@ -228,11 +229,11 @@ test("pendingFinish trigger continues when nobody slaps", () => {
       status: player.id === "p1" ? "pendingFinish" as const : "playing" as const
     }))
   };
-  const next = resolveSlapWindow(state, 3400);
+  const next = resolveSlapWindow(state, 2800);
   assert.equal(next.penaltyResult, null);
   assert.equal(next.roundResult, null);
   assert.equal(next.players.find((item) => item.id === "p1")?.status, "pendingFinish");
-  assert.equal(next.nextAutoPlayAt, 4300);
+  assert.equal(next.nextAutoPlayAt, 2800);
 });
 
 test("bot reaction can miss a real trigger", () => {
@@ -255,6 +256,15 @@ test("isSlapTrigger compares card rank to called number", () => {
 test("unknown slapper is rejected", () => {
   const state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1900);
   assert.throws(() => submitSlap(state, "ghost", 1900));
+});
+
+test("slap validity is based on the latest card's called number, not the next call number", () => {
+  const state = advanceAutoPlay(stateWithDecks(7, [["7"], ["2"], ["3"]], 1000), 1900);
+  assert.equal(state.callNumber, 8);
+  assert.equal(state.centerPile.at(-1)?.calledNumber, 7);
+
+  const next = submitSlap(state, "p2", 1900);
+  assert.equal(next.slapResponses.at(-1)?.valid, true);
 });
 
 function stateWithDecks(callNumber: number, decks: string[][], now: number): HeartAttackState {

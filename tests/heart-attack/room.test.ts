@@ -68,7 +68,7 @@ test("auto-play tick flips one private top card and publishes only public state"
   assert.equal("playerDecks" in controller.publicState, false);
 });
 
-test("triggered auto-play pauses for dead-card resolution without a prompt", () => {
+test("triggered auto-play keeps autoplay scheduled without a prompt", () => {
   const { controller, scheduler, events } = startedController();
   const state = requireState(controller.state);
   state.callNumber = 7;
@@ -77,7 +77,7 @@ test("triggered auto-play pauses for dead-card resolution without a prompt", () 
 
   scheduler.advanceBy(900);
   assert.equal(controller.state?.phase, "playing");
-  assert.equal(controller.state?.nextAutoPlayAt, null);
+  assert.equal(controller.state?.nextAutoPlayAt, 2800);
   assert.equal(events.some((event) => event.type === "SLAP_WINDOW_OPENED"), false);
 
   scheduler.advanceBy(100);
