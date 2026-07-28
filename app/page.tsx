@@ -5,7 +5,7 @@ import { useState } from "react";
 import { games, type Game } from "./data/games";
 
 const difficultyOptions = ["簡單", "普通", "困難"];
-const serverBackedGames = new Set(["heart-attack", "ninety-nine"]);
+const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar"]);
 
 export default function Home() {
   const [selectedGameId, setSelectedGameId] = useState("ninety-nine");
@@ -219,4 +219,3 @@ export default function Home() {
     </main>
   );
 }
-
