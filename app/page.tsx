@@ -5,6 +5,7 @@ import { useState } from "react";
 import { games, type Game } from "./data/games";
 
 const difficultyOptions = ["簡單", "普通", "困難"];
+const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar"]);
 
 export default function Home() {
   const [selectedGameId, setSelectedGameId] = useState("ninety-nine");
@@ -18,6 +19,7 @@ export default function Home() {
   const humanPlayers = Math.max(1, targetPlayers - (game.bots ? botCount : 0));
   const canCreate = !game.realOnly || humanPlayers >= targetPlayers;
   const codeIsValid = /^\d{6}$/.test(joinCode);
+  const joinGame = serverBackedGames.has(game.slug) ? game : games.find((item) => item.id === "heart-attack") ?? game;
 
   function selectGame(nextGame: Game) {
     setSelectedGameId(nextGame.id);
@@ -44,19 +46,16 @@ export default function Home() {
       room: joinCode,
       name: nickname || "玩家"
     });
-
-    // Current server-backed private rooms are Heart Attack rooms. Joining by room
-    // code should not depend on whichever game card is selected on the homepage.
-    window.location.href = `/games/heart-attack?${params.toString()}`;
+    window.location.href = `/games/${joinGame.slug}?${params.toString()}`;
   }
 
   return (
     <main className="site-shell">
       <section className="hero-grid" aria-labelledby="site-title">
         <div className="hero-copy">
-          <p className="stamp">台味朋友撲克房</p>
-          <h1 id="site-title">鬥陣來一局</h1>
-          <p className="hero-text">輸入暱稱就能建立私人房間，用六位數房號邀請朋友加入。純娛樂、無下注、無商城。</p>
+          <p className="stamp">朋友撲克房</p>
+          <h1 id="site-title">來玩牌阿!</h1>
+          <p className="hero-text">輸入暱稱就能建立私人房間，用六位數房號邀請朋友加入。</p>
           <div className="hero-actions" aria-label="主要操作">
             <a className="primary-action" href="#create-room">
               <Plus size={22} />
@@ -208,12 +207,12 @@ export default function Home() {
 
           <div className="rule-callout">
             <Info size={20} />
-            加入房間只需要房號，不受目前選擇的遊戲卡片影響。
+            目前請先選擇要加入的遊戲類型，再輸入該遊戲的六位數房號。
           </div>
 
           <button className="confirm-room-button" disabled={!codeIsValid} onClick={joinRoom} type="button">
             <Hash size={20} />
-            加入房間
+            加入 {joinGame.name} 房間
           </button>
         </div>
       </section>

@@ -101,7 +101,11 @@ export function submitSlap(state: HeartAttackState, playerId: string, timestamp:
   if (state.phase === "round-result" || state.phase === "finished") return state;
 
   const latest = state.centerPile.at(-1) ?? null;
-  const valid = latest !== null && state.slapDeadline !== null && timestamp <= state.slapDeadline;
+  const valid =
+    latest !== null &&
+    state.slapDeadline !== null &&
+    timestamp <= state.slapDeadline &&
+    isSlapTrigger(latest.card, latest.calledNumber);
   const response = { playerId, timestamp, valid };
 
   if (!valid) {
@@ -143,7 +147,7 @@ export function resolveSlapWindow(state: HeartAttackState, timestamp: number): H
       ...state,
       slapDeadline: null,
       slapResponses: [],
-      nextAutoPlayAt: timestamp + state.autoPlayIntervalMs
+      nextAutoPlayAt: state.nextAutoPlayAt ?? timestamp + state.autoPlayIntervalMs
     };
   }
 
@@ -218,7 +222,6 @@ function autoPlayTopCard(state: HeartAttackState, playerId: string, timestamp: n
   const [card, ...remainingDeck] = deck;
   const playedCard: PlayedCard = { card, playedBy: playerId, calledNumber: state.callNumber, playedAt: timestamp };
   const trigger = isSlapTrigger(card, state.callNumber);
-  const hasActiveSlapWindow = state.slapDeadline !== null && timestamp <= state.slapDeadline;
   const players = remainingDeck.length === 0
     ? state.players.map((item) => (item.id === playerId ? { ...item, status: "pendingFinish" as const } : item))
     : state.players;
@@ -228,7 +231,7 @@ function autoPlayTopCard(state: HeartAttackState, playerId: string, timestamp: n
     playerDecks: { ...state.playerDecks, [playerId]: remainingDeck },
     centerPile: [...state.centerPile, playedCard],
     callNumber: getNextCallNumber(state.callNumber),
-    slapResponses: hasActiveSlapWindow ? state.slapResponses : [],
+    slapResponses: [],
     roundResult: null,
     penaltyResult: null,
     turnNumber: state.turnNumber + 1,
@@ -241,9 +244,13 @@ function autoPlayTopCard(state: HeartAttackState, playerId: string, timestamp: n
 
   return {
     ...advancedState,
-    slapDeadline: trigger ? timestamp + SLAP_WINDOW_MS : (hasActiveSlapWindow ? state.slapDeadline : null),
-    nextAutoPlayAt: trigger ? null : timestamp + advancedState.autoPlayIntervalMs
+    slapDeadline: trigger ? timestamp + getSlapWindowDuration(advancedState.autoPlayIntervalMs) : null,
+    nextAutoPlayAt: timestamp + advancedState.autoPlayIntervalMs
   };
+}
+
+function getSlapWindowDuration(autoPlayIntervalMs: number) {
+  return Math.min(SLAP_WINDOW_MS, autoPlayIntervalMs);
 }
 
 function resumeAfterRoundResult(state: HeartAttackState, timestamp: number): HeartAttackState {
