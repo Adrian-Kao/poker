@@ -137,6 +137,51 @@ a {
   box-shadow: 2px 2px 0 var(--ink);
 }
 
+.sound-panel {
+  display: grid;
+  grid-template-columns: auto repeat(3, minmax(160px, 1fr));
+  gap: 14px;
+  align-items: center;
+  margin: 20px 0 30px;
+  padding: 14px 16px;
+  border: 4px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 5px 5px 0 var(--ink);
+  font-weight: 950;
+}
+
+.sound-panel-title,
+.sound-panel label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sound-panel label {
+  min-width: 0;
+}
+
+.sound-panel input {
+  width: 100%;
+  accent-color: var(--blue);
+}
+
+.sound-panel b {
+  color: var(--blue);
+  font-size: 1.1rem;
+}
+
+@media (max-width: 760px) {
+  .sound-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .sound-panel label {
+    display: grid;
+    grid-template-columns: auto minmax(120px, 1fr) auto;
+  }
+}
+
 .poster {
   position: relative;
   min-height: 430px;
@@ -3632,7 +3677,7 @@ input[type="range"] {
 }
 
 .heart-auto-table .self-zone {
-  bottom: 7.5%;
+  bottom: 3.2%;
 }
 
 .heart-auto-table .heart-center {
@@ -3694,7 +3739,7 @@ input[type="range"] {
   }
 
   .heart-auto-table .self-zone {
-    bottom: 8.5%;
+    bottom: 5.5%;
   }
 }
 
@@ -3721,7 +3766,7 @@ input[type="range"] {
   }
 
   .heart-auto-table .self-zone {
-    bottom: 10.5%;
+    bottom: 7.5%;
   }
 
   .heart-auto-table .self-hand {

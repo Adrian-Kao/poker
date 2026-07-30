@@ -7,6 +7,7 @@ import { Client, type Room } from "colyseus.js";
 import { HeartAttackRoomStateSchema, type PublicHeartAttackPlayer } from "../../../server/schema/HeartAttackRoomState";
 import type { HeartAttackPhase, PenaltyReason, PenaltyResult } from "../../../lib/games/heart-attack";
 import type { HeartAttackServerEvent } from "../../../server/messages/heartAttackMessages";
+import { useBgmMode } from "../../SoundProvider";
 
 type Suit = "spades" | "hearts" | "diamonds" | "clubs";
 type DemoCard = { id: string; rank: string; suit: Suit };
@@ -148,6 +149,7 @@ export default function HeartAttackAutoPage() {
   const ownReady = rawPlayers.find((player) => player.id === ownPlayerId)?.ready ?? false;
   const currentPlayer = players.find((player) => player.id === roomState?.currentPlayerId) ?? ownPlayer;
   const phase = (roomState?.phase ?? "waiting") as HeartAttackPhase;
+  useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const lastCard = roomState?.lastCard?.id ? toDemoCard(roomState.lastCard) : null;
   const penaltyResult = roomState?.penaltyNotice?.id ? toPenaltyResult(roomState.penaltyNotice) : null;
   const canUseRoom = status === "connected" && !!roomRef.current;

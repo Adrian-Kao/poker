@@ -1,13 +1,15 @@
 "use client";
 
-import { Bot, Check, DoorOpen, Hash, Info, Play, Plus, ShieldCheck, Users, X } from "lucide-react";
+import { Bot, Check, DoorOpen, Hash, Info, Play, Plus, ShieldCheck, Users, Volume2, X } from "lucide-react";
 import { useState } from "react";
 import { games, type Game } from "./data/games";
+import { useSoundControls } from "./SoundProvider";
 
 const difficultyOptions = ["簡單", "普通", "困難"];
 const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar"]);
 
 export default function Home() {
+  const { lobbyVolume, gameVolume, effectVolume, setLobbyVolume, setGameVolume, setEffectVolume } = useSoundControls();
   const [selectedGameId, setSelectedGameId] = useState("ninety-nine");
   const [nickname, setNickname] = useState("阿德");
   const [joinCode, setJoinCode] = useState("");
@@ -54,7 +56,7 @@ export default function Home() {
       <section className="hero-grid" aria-labelledby="site-title">
         <div className="hero-copy">
           <p className="stamp">朋友撲克房</p>
-          <h1 id="site-title">來玩牌阿!</h1>
+          <h1 id="site-title">玩牌阿!</h1>
           <p className="hero-text">輸入暱稱就能建立私人房間，用六位數房號邀請朋友加入。</p>
           <div className="hero-actions" aria-label="主要操作">
             <a className="primary-action" href="#create-room">
@@ -99,10 +101,56 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="sound-panel" aria-label="音量控制">
+        <div className="sound-panel-title">
+          <Volume2 size={22} />
+          <strong>音效設定</strong>
+        </div>
+        <label>
+          <span>大廳</span>
+          <input
+            aria-label="大廳音量"
+            max={1}
+            min={0}
+            onChange={(event) => setLobbyVolume(Number(event.target.value))}
+            step={0.01}
+            type="range"
+            value={lobbyVolume}
+          />
+          <b>{Math.round(lobbyVolume * 100)}%</b>
+        </label>
+        <label>
+          <span>遊戲室</span>
+          <input
+            aria-label="遊戲室音量"
+            max={1}
+            min={0}
+            onChange={(event) => setGameVolume(Number(event.target.value))}
+            step={0.01}
+            type="range"
+            value={gameVolume}
+          />
+          <b>{Math.round(gameVolume * 100)}%</b>
+        </label>
+        <label>
+          <span>音效</span>
+          <input
+            aria-label="音效音量"
+            max={1}
+            min={0}
+            onChange={(event) => setEffectVolume(Number(event.target.value))}
+            step={0.01}
+            type="range"
+            value={effectVolume}
+          />
+          <b>{Math.round(effectVolume * 100)}%</b>
+        </label>
+      </section>
+
       <section className="section-block" aria-labelledby="games-title">
         <div className="section-heading">
           <p className="stamp">七款遊戲</p>
-          <h2 id="games-title">先選今天要玩的牌局</h2>
+          
         </div>
         <div className="game-grid">
           {games.map((item) => (

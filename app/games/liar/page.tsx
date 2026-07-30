@@ -7,6 +7,7 @@ import type { BluffCard, BluffPhase, BluffRank } from "../../../lib/games/bluff"
 import { bluffRanks } from "../../../lib/games/bluff";
 import { BluffRoomStateSchema, type PublicBluffPlayer } from "../../../server/schema/BluffRoomState";
 import type { BluffServerEvent } from "../../../server/messages/bluffMessages";
+import { useBgmMode, useSoundControls } from "../../SoundProvider";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type SeatPosition = "top" | "left" | "right";
@@ -21,6 +22,7 @@ const difficultyLabels = [
 ] as const;
 
 export default function LiarPage() {
+  const { playSound } = useSoundControls();
   const [roomCode, setRoomCode] = useState("------");
   const [nickname, setNickname] = useState("玩家");
   const [ownPlayerId, setOwnPlayerId] = useState("");
@@ -34,6 +36,7 @@ export default function LiarPage() {
   const [events, setEvents] = useState<BluffServerEvent[]>([]);
   const [reaction, setReaction] = useState<"trust" | "challenge" | null>(null);
   const roomRef = useRef<Room<BluffRoomStateSchema> | null>(null);
+  const lastResultSoundKeyRef = useRef("");
 
   useEffect(() => {
     let disposed = false;
@@ -120,8 +123,19 @@ export default function LiarPage() {
     if (index >= 0) setClaimedRankIndex(index);
   }, [roomState?.roundClaimRank]);
 
+  useEffect(() => {
+    const notice = roomState?.notice ?? "";
+    if (roomState?.phase !== "round-result" || !notice) return;
+    const soundKey = `${roomState.turnNumber}-${notice}`;
+    if (lastResultSoundKeyRef.current === soundKey) return;
+    lastResultSoundKeyRef.current = soundKey;
+    if (notice === "抓到了齁") playSound("correct");
+    if (notice === "說好的信任呢") playSound("wrong");
+  }, [playSound, roomState?.notice, roomState?.phase, roomState?.turnNumber]);
+
   const rawPlayers = useMemo(() => Array.from(roomState?.players ?? []), [roomState, stateVersion]);
   const phase = (roomState?.phase ?? "waiting") as BluffPhase;
+  useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const ownPlayer = rawPlayers.find((player) => player.id === ownPlayerId);
   const ownReady = ownPlayer?.ready ?? false;
   const isHost = ownPlayer?.host ?? false;

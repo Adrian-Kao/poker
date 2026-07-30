@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SoundProvider } from "./SoundProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-Hant-TW">
-      <body>{children}</body>
+      <body>
+        <SoundProvider>{children}</SoundProvider>
+      </body>
     </html>
   );
 }

@@ -1,6 +1,14 @@
 import { createStandardDeck } from "../core/cards";
 import { createSeededRandom, shuffle, type RandomSource } from "../core/random";
-import { AUTO_PLAY_INTERVAL_MS, HEART_ATTACK_HAND_SIZE, ROUND_RESULT_DISPLAY_MS, SLAP_WINDOW_MS } from "./constants";
+import {
+  AUTO_PLAY_INTERVAL_MS,
+  AUTO_PLAY_MIN_INTERVAL_MS,
+  AUTO_PLAY_SPEEDUP_EVERY_CARDS,
+  AUTO_PLAY_SPEEDUP_STEP_MS,
+  HEART_ATTACK_HAND_SIZE,
+  ROUND_RESULT_DISPLAY_MS,
+  SLAP_WINDOW_MS
+} from "./constants";
 import { getNextCallNumber, isSlapTrigger } from "./actions";
 import type {
   CreateHeartAttackPlayerInput,
@@ -118,6 +126,7 @@ export function submitSlap(state: HeartAttackState, playerId: string, timestamp:
       centerPile: [],
       slapResponses: [...state.slapResponses, response],
       slapDeadline: null,
+      autoPlayIntervalMs: AUTO_PLAY_INTERVAL_MS,
       nextAutoPlayAt: timestamp + ROUND_RESULT_DISPLAY_MS,
       penaltyResult: createPenaltyResult(state, "false-slap", playerId, pile, timestamp, latest),
       roundResult: {
@@ -164,6 +173,7 @@ export function resolveSlapWindow(state: HeartAttackState, timestamp: number): H
     playerDecks: givePileToPlayer(state.playerDecks, penaltyPlayerId, pile),
     centerPile: [],
     slapDeadline: null,
+    autoPlayIntervalMs: AUTO_PLAY_INTERVAL_MS,
     nextAutoPlayAt: timestamp + ROUND_RESULT_DISPLAY_MS,
     penaltyResult: createPenaltyResult(state, reason, penaltyPlayerId, pile, timestamp, trigger, slowest?.timestamp ?? null),
     roundResult: {
@@ -205,9 +215,9 @@ export function getHeartAttackWinner(state: HeartAttackState) {
 }
 
 export function getAutoPlayIntervalMs(turnNumber: number) {
-  const completedCards = Math.max(0, turnNumber - 1);
-  const speedSteps = Math.floor(completedCards / 13);
-  return Math.max(500, AUTO_PLAY_INTERVAL_MS - speedSteps * 50);
+  const completedCardsInRound = Math.max(0, turnNumber - 1);
+  const speedSteps = Math.floor(completedCardsInRound / AUTO_PLAY_SPEEDUP_EVERY_CARDS);
+  return Math.max(AUTO_PLAY_MIN_INTERVAL_MS, AUTO_PLAY_INTERVAL_MS - speedSteps * AUTO_PLAY_SPEEDUP_STEP_MS);
 }
 
 function autoPlayTopCard(state: HeartAttackState, playerId: string, timestamp: number): HeartAttackState {
@@ -235,7 +245,7 @@ function autoPlayTopCard(state: HeartAttackState, playerId: string, timestamp: n
     roundResult: null,
     penaltyResult: null,
     turnNumber: state.turnNumber + 1,
-    autoPlayIntervalMs: getAutoPlayIntervalMs(state.turnNumber + 1)
+    autoPlayIntervalMs: getAutoPlayIntervalMs(state.centerPile.length + 1)
   };
 
   const nextPlayerId = getNextPlayablePlayer(baseState, playerId);
@@ -255,7 +265,11 @@ function getSlapWindowDuration(autoPlayIntervalMs: number) {
 
 function resumeAfterRoundResult(state: HeartAttackState, timestamp: number): HeartAttackState {
   const nextPlayerId = state.currentPlayerId ?? getNextPlayablePlayer(state);
-  return advanceToNextActivePlayer({ ...state, phase: "playing", roundResult: state.roundResult, penaltyResult: null }, nextPlayerId, timestamp);
+  return advanceToNextActivePlayer(
+    { ...state, phase: "playing", roundResult: state.roundResult, penaltyResult: null, autoPlayIntervalMs: AUTO_PLAY_INTERVAL_MS },
+    nextPlayerId,
+    timestamp
+  );
 }
 
 function advanceToNextActivePlayer(state: HeartAttackState, nextPlayerId: string | null, timestamp: number): HeartAttackState {

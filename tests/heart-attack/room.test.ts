@@ -35,7 +35,7 @@ test("controller auto-starts only after every joined player is ready", () => {
 
   assert.equal(controller.publicState.phase, "playing");
   assert.equal(controller.publicState.players.length, 3);
-  assert.equal(controller.state?.nextAutoPlayAt, 1900);
+  assert.equal(controller.state?.nextAutoPlayAt, 1800);
   assert.equal(events.at(-1)?.type, "GAME_STARTED");
   assert.equal(scheduler.activeTaskCount(), 1);
 });
@@ -56,10 +56,10 @@ test("auto-play tick flips one private top card and publishes only public state"
   const { controller, scheduler, events } = startedController();
   const state = requireState(controller.state);
   state.callNumber = 7;
-  state.nextAutoPlayAt = 1900;
+  state.nextAutoPlayAt = 1800;
   state.playerDecks["player-s1"] = [card("8"), card("2")];
 
-  scheduler.advanceBy(900);
+  scheduler.advanceBy(800);
 
   assert.equal(controller.state?.centerPile.length, 1);
   assert.equal(controller.publicState.centerPileCount, 1);
@@ -72,12 +72,12 @@ test("triggered auto-play keeps autoplay scheduled without a prompt", () => {
   const { controller, scheduler, events } = startedController();
   const state = requireState(controller.state);
   state.callNumber = 7;
-  state.nextAutoPlayAt = 1900;
+  state.nextAutoPlayAt = 1800;
   state.playerDecks["player-s1"] = [card("7"), card("2")];
 
-  scheduler.advanceBy(900);
+  scheduler.advanceBy(800);
   assert.equal(controller.state?.phase, "playing");
-  assert.equal(controller.state?.nextAutoPlayAt, 2800);
+  assert.equal(controller.state?.nextAutoPlayAt, 2600);
   assert.equal(events.some((event) => event.type === "SLAP_WINDOW_OPENED"), false);
 
   scheduler.advanceBy(100);
@@ -97,10 +97,10 @@ test("round-result rejects new slap and resumes after notice window", () => {
   const { controller, scheduler } = startedController();
   const state = requireState(controller.state);
   state.callNumber = 7;
-  state.nextAutoPlayAt = 1900;
+  state.nextAutoPlayAt = 1800;
   state.playerDecks["player-s1"] = [card("8"), card("2")];
 
-  scheduler.advanceBy(900);
+  scheduler.advanceBy(800);
   controller.slap("s2", "false-slap");
   assert.equal(controller.state?.phase, "round-result");
   assert.throws(() => controller.slap("s3", "late-slap"), /Cannot slap now/);
@@ -126,10 +126,10 @@ test("bot slap timers are cancelled on dispose", () => {
   controller.setReady("s2", "ready-2", true);
   const state = requireState(controller.state);
   state.callNumber = 7;
-  state.nextAutoPlayAt = 1900;
+  state.nextAutoPlayAt = 1800;
   state.playerDecks["player-s1"] = [card("7"), card("2")];
 
-  scheduler.advanceBy(900);
+  scheduler.advanceBy(800);
   assert.equal(controller.state?.phase, "playing");
   assert(scheduler.activeTaskCount() >= 1);
 

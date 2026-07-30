@@ -7,6 +7,7 @@ import type { Card, Suit } from "../../../lib/games/core/cards";
 import type { LegalNinetyNineAction, NinetyNinePhase, NinetyNinePlayChoice } from "../../../lib/games/ninety-nine";
 import { NinetyNineRoomStateSchema, type PublicNinetyNinePlayer } from "../../../server/schema/NinetyNineRoomState";
 import type { NinetyNineServerEvent } from "../../../server/messages/ninetyNineMessages";
+import { useBgmMode } from "../../SoundProvider";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type Seat = "self" | "top" | "left" | "right" | "upperLeft" | "upperRight";
@@ -127,6 +128,7 @@ export default function NinetyNinePage() {
   const ownPlayer = rawPlayers.find((player) => player.id === ownPlayerId);
   const isHost = ownPlayer?.host ?? false;
   const phase = (roomState?.phase ?? "waiting") as NinetyNinePhase;
+  useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const canUseRoom = status === "connected" && !!roomRef.current;
   const canStart = canUseRoom && isHost && phase === "waiting" && rawPlayers.length >= 2 && rawPlayers.every((player) => player.ready);
   const selectedCard = hand.find((card) => card.id === selectedCardId) ?? hand[0];
