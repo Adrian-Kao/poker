@@ -1,6 +1,7 @@
 "use client";
 
 import { Bot, Check, DoorOpen, Hash, Info, Play, Plus, ShieldCheck, Users, Volume2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { games, type Game } from "./data/games";
 import { useSoundControls } from "./SoundProvider";
@@ -9,6 +10,7 @@ const difficultyOptions = ["簡單", "普通", "困難"];
 const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar", "old-maid"]);
 
 export default function Home() {
+  const router = useRouter();
   const { lobbyVolume, gameVolume, effectVolume, setLobbyVolume, setGameVolume, setEffectVolume } = useSoundControls();
   const [selectedGameId, setSelectedGameId] = useState("ninety-nine");
   const [nickname, setNickname] = useState("阿德");
@@ -38,7 +40,7 @@ export default function Home() {
       bots: String(game.bots ? botCount : 0),
       difficulty
     });
-    window.location.href = `/games/${game.slug}?${params.toString()}`;
+    router.push(`/games/${game.slug}?${params.toString()}`);
   }
 
   function joinRoom() {
@@ -48,7 +50,7 @@ export default function Home() {
       room: joinCode,
       name: nickname || "玩家"
     });
-    window.location.href = `/games/${joinGame.slug}?${params.toString()}`;
+    router.push(`/games/${joinGame.slug}?${params.toString()}`);
   }
 
   return (

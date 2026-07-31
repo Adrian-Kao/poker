@@ -39,7 +39,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
   const lobbyBgmRef = useRef<HTMLAudioElement | null>(null);
   const playingBgmRef = useRef<HTMLAudioElement | null>(null);
   const unlockBgmRef = useRef<(() => void) | null>(null);
-  const activeBgmMode: BgmMode = requestedBgmMode ?? (pathname === "/" ? "lobby" : "none");
+  const activeBgmMode: BgmMode = requestedBgmMode ?? (pathname === "/" || pathname.startsWith("/games/") ? "lobby" : "none");
   const activeVolume = activeBgmMode === "playing" ? gameVolume : lobbyVolume;
 
   useEffect(() => {
