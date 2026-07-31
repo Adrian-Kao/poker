@@ -57,7 +57,7 @@ export default function Home() {
         <div className="hero-copy">
           <p className="stamp">朋友撲克房</p>
           <h1 id="site-title">玩牌阿!</h1>
-          <p className="hero-text">輸入暱稱就能建立私人房間，用六位數房號邀請朋友加入。</p>
+          <p className="hero-text">建立私人房間，用六位數房號邀請朋友加入。</p>
           <div className="hero-actions" aria-label="主要操作">
             <a className="primary-action" href="#create-room">
               <Plus size={22} />

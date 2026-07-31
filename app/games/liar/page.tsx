@@ -152,7 +152,7 @@ export default function LiarPage() {
   const lastPlayerName = currentPlayerName(rawPlayers, roomState?.lastBatchPlayerId ?? "");
   const notice = reaction === "trust" && phase === "reaction-window"
     ? ""
-    : roomState?.notice || (roomState?.roundClaimRank ? `${lastPlayerName} 出了 ${roomState.roundClaimCount} 張 ${roomState.roundClaimRank}` : "等待第一手喊牌");
+    : roomState?.notice || (roomState?.roundClaimRank ? `${lastPlayerName} 加 ${roomState.roundClaimCount} 張 ${roomState.roundClaimRank}` : "等待第一手喊牌");
   const revealedCards = useMemo(
     () => Array.from(roomState?.revealedCards ?? []).map((card) => ({
       id: card.id,
