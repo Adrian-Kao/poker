@@ -65,6 +65,12 @@ export interface BluffRoundResult {
   message: string;
 }
 
+export interface BluffFourOfKindClear {
+  playerId: string;
+  rank: BluffRank;
+  cards: BluffCard[];
+}
+
 export interface BluffState {
   phase: BluffPhase;
   players: BluffPlayer[];
@@ -81,6 +87,7 @@ export interface BluffState {
   reactionDeadline: number | null;
   reviewerId: string | null;
   roundResult: BluffRoundResult | null;
+  lastFourOfKindClears?: BluffFourOfKindClear[];
   winnerId: string | null;
   turnNumber: number;
 }
@@ -96,4 +103,3 @@ export type LegalBluffAction = {
   cardIds: string[];
   roundClaimRank: BluffRank;
 };
-

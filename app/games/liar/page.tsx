@@ -31,12 +31,16 @@ export default function LiarPage() {
   const [roomState, setRoomState] = useState<BluffRoomStateSchema | null>(null);
   const [stateVersion, setStateVersion] = useState(0);
   const [hand, setHand] = useState<BluffCard[]>([]);
+  const [dealAnimation, setDealAnimation] = useState({ active: false, visible: 0 });
+  const [fourKindNotice, setFourKindNotice] = useState("");
+  const [clearingCards, setClearingCards] = useState<BluffCard[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [claimedRankIndex, setClaimedRankIndex] = useState(11);
   const [events, setEvents] = useState<BluffServerEvent[]>([]);
   const [reaction, setReaction] = useState<"trust" | "challenge" | null>(null);
   const roomRef = useRef<Room<BluffRoomStateSchema> | null>(null);
   const lastResultSoundKeyRef = useRef("");
+  const hasStartedDealRef = useRef(false);
 
   useEffect(() => {
     let disposed = false;
@@ -87,7 +91,19 @@ export default function LiarPage() {
           if (event.type === "ACTION_REJECTED") setStatusText(event.reason);
           if (event.type === "HAND_UPDATED") {
             setHand(event.cards);
+            if (!hasStartedDealRef.current && event.cards.length > 0) {
+              hasStartedDealRef.current = true;
+              setDealAnimation({ active: true, visible: 0 });
+            }
             setSelectedIds((current) => current.filter((id) => event.cards.some((card) => card.id === id)));
+          }
+          if (event.type === "FOUR_OF_KIND_CLEARED") {
+            setFourKindNotice(`四張 ${event.rank} 了`);
+            setClearingCards(event.cards);
+            window.setTimeout(() => {
+              setFourKindNotice("");
+              setClearingCards([]);
+            }, 1200);
           }
           if (event.type === "ROOM_CLOSED") window.location.href = "/";
         });
@@ -117,6 +133,18 @@ export default function LiarPage() {
       roomRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!dealAnimation.active) return;
+    if (dealAnimation.visible >= hand.length) {
+      setDealAnimation({ active: false, visible: hand.length });
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDealAnimation((current) => ({ ...current, visible: Math.min(hand.length, current.visible + 1) }));
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [dealAnimation.active, dealAnimation.visible, hand.length]);
 
   useEffect(() => {
     const rank = roomState?.roundClaimRank as BluffRank | "";
@@ -163,6 +191,7 @@ export default function LiarPage() {
     })),
     [roomState, stateVersion]
   );
+  const displayNotice = fourKindNotice || notice;
 
   function send(type: BluffClientMessageType, extra: Record<string, unknown> = {}) {
     const room = roomRef.current;
@@ -274,9 +303,9 @@ export default function LiarPage() {
             ))}
           </div>
 
-          {notice ? (
+          {displayNotice ? (
             <article className="bluff-claim-card" aria-live="polite">
-              <strong>{notice}</strong>
+              <strong>{displayNotice}</strong>
             </article>
           ) : null}
 
@@ -300,7 +329,17 @@ export default function LiarPage() {
           </div>
         ) : null}
 
+        {dealAnimation.active && dealAnimation.visible < hand.length ? (
+          <div className="deal-animation-card bluff-deal-animation-card" aria-hidden="true"><div className="deal-card-back" /></div>
+        ) : null}
+
         <section className="bluff-self-zone" aria-label="自己的手牌">
+          {fourKindNotice ? <div className="bluff-four-kind-notice" aria-live="polite">{fourKindNotice}</div> : null}
+          {clearingCards.length > 0 ? (
+            <div className="bluff-clearing-cards" aria-hidden="true">
+              {clearingCards.map((card) => <div className="bluff-clearing-card" key={card.id}><PlayingCard card={card} /></div>)}
+            </div>
+          ) : null}
           <div className="bluff-self-badge">
             <div className="bluff-avatar yellow">{(nickname || "你").slice(0, 1)}</div>
             <div>
@@ -310,7 +349,7 @@ export default function LiarPage() {
           </div>
 
           <div className="bluff-hand">
-            {hand.map((card) => (
+            {(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card) => (
               <button
                 aria-pressed={selectedIds.includes(card.id)}
                 className={`bluff-card-button ${selectedIds.includes(card.id) ? "selected" : ""}`}

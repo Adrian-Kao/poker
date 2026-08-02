@@ -15,9 +15,9 @@ export type BluffServerEvent =
   | { type: "CARDS_PLAYED"; batchId: string; playerId: string; roundClaimRank: BluffRank; addedCount: number; centerPileCount: number }
   | { type: "REACTION_RECORDED"; playerId: string; choice: "trust" | "challenge" }
   | { type: "ROUND_RESULT"; result: BluffRoundResult }
+  | { type: "FOUR_OF_KIND_CLEARED"; rank: BluffRank; cards: BluffCard[] }
   | { type: "HAND_UPDATED"; cards: BluffCard[] }
   | { type: "TURN_CHANGED"; playerId: string; deadline: number }
   | { type: "GAME_FINISHED"; winnerId: string }
   | { type: "ROOM_CLOSED"; reason: "left" | "cancelled" }
   | { type: "ACTION_REJECTED"; actionId?: string; reason: string };
-

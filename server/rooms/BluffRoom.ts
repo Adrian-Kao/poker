@@ -47,6 +47,7 @@ export class BluffRoomController {
   private reactionDeadline = 0;
   private initialBotCount: number;
   private botDifficulty: BotDifficulty;
+  private emittedFourOfKindKeys = new Set<string>();
 
   constructor(options: BluffRoomControllerOptions = {}) {
     this.scheduler = options.scheduler ?? new DefaultRoomScheduler();
@@ -164,8 +165,10 @@ export class BluffRoomController {
       })),
       random: this.random
     });
+    this.emittedFourOfKindKeys.clear();
     this.onGameStarted();
     this.emit({ type: "GAME_STARTED" });
+    this.emitFourOfKindNotices();
     this.startTurn();
   }
 
@@ -252,6 +255,7 @@ export class BluffRoomController {
   }
 
   private afterStateChange(before: BluffState) {
+    this.emitFourOfKindNotices();
     this.sendHands();
     if (!this.gameState) return;
     if (before.phase !== "round-result" && this.gameState.phase === "round-result" && this.gameState.roundResult) {
@@ -334,6 +338,15 @@ export class BluffRoomController {
   private sendHand(playerId: string) {
     if (!this.gameState) return;
     this.emit({ type: "HAND_UPDATED", cards: this.gameState.hands[playerId] ?? [] }, playerId);
+  }
+
+  private emitFourOfKindNotices() {
+    for (const clear of this.gameState?.lastFourOfKindClears ?? []) {
+      const key = `${clear.playerId}:${clear.rank}:${clear.cards.map((card) => card.id).join(",")}`;
+      if (this.emittedFourOfKindKeys.has(key)) continue;
+      this.emittedFourOfKindKeys.add(key);
+      this.emit({ type: "FOUR_OF_KIND_CLEARED", rank: clear.rank, cards: clear.cards }, clear.playerId);
+    }
   }
 
   private addBotInternal(difficulty: BotDifficulty) {

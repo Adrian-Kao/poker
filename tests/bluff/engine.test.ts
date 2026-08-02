@@ -102,6 +102,34 @@ test("player with no hand must survive a full turn before winning", () => {
   assert.equal(afterFullRound.winnerId, "p1");
 });
 
+test("four matching ranks are automatically discarded after a play", () => {
+  const state = stateWithHands([
+    [["p1-q1", "Q"], ["p1-q2", "Q"], ["p1-q3", "Q"], ["p1-q4", "Q"], ["p1-9", "9"]],
+    ["2"],
+    ["3"]
+  ]);
+  const next = playBluffCards(state, "p1", ["p1-9"], "9", 100);
+
+  assert.equal(next.hands.p1.length, 0);
+  assert.deepEqual(next.discardPile.map((card) => card.rank), ["Q", "Q", "Q", "Q"]);
+  assert.equal(next.players.find((player) => player.id === "p1")?.status, "pendingFinish");
+});
+
+test("four matching ranks are automatically discarded after collecting the center pile", () => {
+  const state = stateWithHands([
+    [["p1-q1", "Q"]],
+    [["p2-q1", "Q"], ["p2-q2", "Q"], ["p2-q3", "Q"], ["p2-8", "8"]],
+    ["3"]
+  ]);
+  const claimed = playBluffCards(state, "p1", ["p1-q1"], "Q", 100);
+  const resolved = submitBluffReaction(claimed, "p2", "challenge", "challenge-1", 120);
+
+  assert.equal(resolved.hands.p2.length, 1);
+  assert.equal(resolved.hands.p2[0].rank, "8");
+  assert.equal(resolved.discardPile.filter((card) => card.rank === "Q").length, 4);
+  assert.equal(resolved.centerPile.length, 0);
+});
+
 function stateWithHands(rankRows: (string | [string, BluffCard["rank"]])[][]): BluffState {
   const hands = Object.fromEntries(
     players.map((player, playerIndex) => [

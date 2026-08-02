@@ -5,6 +5,7 @@ import { getActivePlayers, getNextBluffPlayerId, isBatchLie } from "./actions";
 import type {
   BluffAction,
   BluffCard,
+  BluffFourOfKindClear,
   BluffRank,
   BluffState,
   CreateBluffPlayerInput,
@@ -31,7 +32,7 @@ export function createBluffGame(options: CreateBluffGameOptions): BluffState {
     hands[player.id].push(card);
   });
 
-  return {
+  return autoDiscardFourOfKinds({
     phase: "playing",
     players: options.players.map((player, seat) => ({
       id: player.id,
@@ -57,7 +58,7 @@ export function createBluffGame(options: CreateBluffGameOptions): BluffState {
     roundResult: null,
     winnerId: null,
     turnNumber: 1
-  };
+  });
 }
 
 export function applyBluffAction(state: BluffState, action: BluffAction, timestamp = Date.now()): BluffState {
@@ -99,7 +100,7 @@ export function playBluffCards(
     player.id === playerId && nextHand.length === 0 ? { ...player, status: "pendingFinish" as const } : player
   );
 
-  return {
+  return autoDiscardFourOfKinds({
     ...state,
     phase: "reaction-window",
     players,
@@ -118,7 +119,7 @@ export function playBluffCards(
     reactionDeadline: null,
     reviewerId: null,
     roundResult: null
-  };
+  });
 }
 
 export function submitBluffReaction(
@@ -161,7 +162,7 @@ export function resolveBluffChallenge(state: BluffState, challengerId: string, t
   const nextStarterId = isLie ? challengerId : batch.playerId;
   const pileCards = state.centerPile.map((played) => played.card);
 
-  return {
+  return autoDiscardFourOfKinds({
     ...state,
     phase: "round-result",
     players: restorePenaltyPlayer(state.players, penaltyPlayerId),
@@ -184,7 +185,7 @@ export function resolveBluffChallenge(state: BluffState, challengerId: string, t
       message: isLie ? "抓到了齁" : "說好的信任呢"
     },
     turnNumber: state.turnNumber + 1
-  };
+  });
 }
 
 export function resolveRoundResult(state: BluffState, timestamp = Date.now()): BluffState {
@@ -209,14 +210,14 @@ export function discardFourOfKind(state: BluffState, playerId: string, cardIds: 
   if (matching + wildcards !== 4) throw new Error("Cards do not form four of a kind.");
 
   const nextHand = hand.filter((card) => !cardIds.includes(card.id));
-  return {
+  return autoDiscardFourOfKinds({
     ...state,
     hands: { ...state.hands, [playerId]: nextHand },
     discardPile: [...state.discardPile, ...cards],
     players: state.players.map((player) =>
       player.id === playerId && nextHand.length === 0 ? { ...player, status: "pendingFinish" as const } : player
     )
-  };
+  });
 }
 
 export function getLegalBluffActions(state: BluffState, playerId = state.currentPlayerId ?? "") {
@@ -294,4 +295,52 @@ function finishIfNeeded(state: BluffState): BluffState {
 
 function restorePenaltyPlayer(players: BluffState["players"], playerId: string) {
   return players.map((player) => (player.id === playerId && player.status === "pendingFinish" ? { ...player, status: "playing" as const } : player));
+}
+
+function autoDiscardFourOfKinds(state: BluffState): BluffState {
+  const nextHands: Record<string, BluffCard[]> = {};
+  const discarded: BluffCard[] = [];
+  const clears: BluffFourOfKindClear[] = [];
+  let anyDiscarded = false;
+
+  Object.entries(state.hands).forEach(([playerId, hand]) => {
+    const byRank = new Map<BluffRank, BluffCard[]>();
+
+    hand.forEach((card) => {
+      if (card.rank === "JOKER") return;
+      const cards = byRank.get(card.rank) ?? [];
+      cards.push(card);
+      byRank.set(card.rank, cards);
+    });
+
+    const discardIds = new Set<string>();
+    byRank.forEach((cards) => {
+      if (cards.length < 4) return;
+      const fourCards = cards.slice(0, 4);
+      fourCards.forEach((card) => {
+        discardIds.add(card.id);
+        discarded.push(card);
+      });
+      clears.push({ playerId, rank: fourCards[0].rank as BluffRank, cards: fourCards });
+    });
+
+    if (discardIds.size > 0) anyDiscarded = true;
+    nextHands[playerId] = discardIds.size > 0
+      ? hand.filter((card) => !discardIds.has(card.id))
+      : hand;
+  });
+
+  if (!anyDiscarded) return { ...state, lastFourOfKindClears: [] };
+
+  return {
+    ...state,
+    hands: nextHands,
+    discardPile: [...state.discardPile, ...discarded],
+    lastFourOfKindClears: clears,
+    players: state.players.map((player) =>
+      player.status === "playing" && (nextHands[player.id]?.length ?? 0) === 0
+        ? { ...player, status: "pendingFinish" as const }
+        : player
+    )
+  };
 }

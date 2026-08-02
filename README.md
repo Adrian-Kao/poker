@@ -57,3 +57,13 @@ Hidden hands stay in the engine/room state and are not published through the pub
 
 The Ninety-Nine backend is server authoritative. The server owns hidden hands, legal actions, total changes, drawing, discard recycling, turn order, bot actions, timeout actions, elimination, and winner resolution.
 
+## Pick Red Points Backend
+
+- Colyseus room: `pick_red_points`
+- Game page: `app/games/red-dot/page.tsx`
+- Rules: `docs/games/pick-red-points.md`
+- Engine: `lib/games/pick-red-points`
+- Room: `server/rooms/PickRedPointsRoom.ts`
+- Public schema: `server/schema/PickRedPointsRoomState.ts`
+
+撿紅點使用伺服器權威配對與計分，公開狀態只提供桌牌、分數、剩餘手牌數與抽牌堆張數；完整手牌只透過個人事件傳送。

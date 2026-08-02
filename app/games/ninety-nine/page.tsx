@@ -34,9 +34,11 @@ export default function NinetyNinePage() {
   const [selectedCardId, setSelectedCardId] = useState("");
   const [events, setEvents] = useState<NinetyNineServerEvent[]>([]);
   const [flyingCard, setFlyingCard] = useState<Card | null>(null);
+  const [dealAnimation, setDealAnimation] = useState({ active: false, visible: 0 });
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   const roomRef = useRef<Room<NinetyNineRoomStateSchema> | null>(null);
   const lastCardIdRef = useRef("");
+  const hasStartedDealRef = useRef(false);
 
   useEffect(() => {
     let disposed = false;
@@ -92,6 +94,10 @@ export default function NinetyNinePage() {
           if (event.type === "ACTION_REJECTED") setStatusText(event.reason);
           if (event.type === "HAND_UPDATED") {
             setHand(event.cards);
+            if (!hasStartedDealRef.current && event.cards.length > 0) {
+              hasStartedDealRef.current = true;
+              setDealAnimation({ active: true, visible: 0 });
+            }
             setLegalActions(event.legalActions);
             setSelectedCardId((current) => current && event.cards.some((card) => card.id === current) ? current : event.cards[0]?.id ?? "");
           }
@@ -123,6 +129,18 @@ export default function NinetyNinePage() {
       roomRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!dealAnimation.active) return;
+    if (dealAnimation.visible >= hand.length) {
+      setDealAnimation({ active: false, visible: hand.length });
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setDealAnimation((current) => ({ ...current, visible: Math.min(hand.length, current.visible + 1) }));
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [dealAnimation.active, dealAnimation.visible, hand.length]);
 
   const rawPlayers = useMemo(() => Array.from(roomState?.players ?? []), [roomState, stateVersion]);
   const emptySeatCount = Math.max(0, (roomState?.maxPlayers ?? 4) - rawPlayers.length);
@@ -257,10 +275,14 @@ export default function NinetyNinePage() {
           </div>
         ) : null}
 
+        {dealAnimation.active && dealAnimation.visible < hand.length ? (
+          <div className="deal-animation-card ninety-deal-animation-card" aria-hidden="true"><div className="deal-card-back" /></div>
+        ) : null}
+
         <div className="self-zone ninety-self-zone">
           <PlayerBadge playerName={nickname} current={isMyTurn} />
           <div className="ninety-nine-hand fan-hand online-hand" aria-label="自己的五張手牌">
-            {hand.map((card, index) => {
+            {(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card, index) => {
               const playable = isMyTurn && selectedLegalFor(card, legalActions).length > 0 && phase === "playing";
               return (
                 <button

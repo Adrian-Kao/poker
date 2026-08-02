@@ -7,7 +7,7 @@ import { games, type Game } from "./data/games";
 import { useSoundControls } from "./SoundProvider";
 
 const difficultyOptions = ["簡單", "普通", "困難"];
-const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar", "old-maid"]);
+const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar", "old-maid", "red-dot"]);
 
 export default function Home() {
   const router = useRouter();
@@ -163,7 +163,7 @@ export default function Home() {
                 {item.players}
               </span>
               <span className="game-note">{item.note}</span>
-              {item.realOnly && <strong className="real-only">只限真人遊玩</strong>}
+              {item.realOnly && <strong className="real-only">無電腦補位</strong>}
             </button>
           ))}
         </div>
