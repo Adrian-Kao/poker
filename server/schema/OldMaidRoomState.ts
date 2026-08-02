@@ -70,6 +70,7 @@ export type LobbyOldMaidPlayer = {
   nickname: string;
   seat: number;
   sessionId?: string;
+  clientId?: string;
   connected: boolean;
   ready: boolean;
   host: boolean;

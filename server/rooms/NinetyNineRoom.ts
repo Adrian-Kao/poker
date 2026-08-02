@@ -60,10 +60,20 @@ export class NinetyNineRoomController {
     return this.gameState;
   }
 
-  addHuman(sessionId: string, nickname: string) {
+  addHuman(sessionId: string, nickname: string, clientId?: string) {
     if (this.gameState) throw new Error("Game already started.");
+    const existingPlayer = this.lobbyPlayers.find((player) => player.sessionId === sessionId || (clientId && player.clientId === clientId));
+    if (existingPlayer) {
+      existingPlayer.id = `player-${sessionId}`;
+      existingPlayer.sessionId = sessionId;
+      existingPlayer.clientId = clientId ?? existingPlayer.clientId;
+      existingPlayer.nickname = sanitizeNickname(nickname);
+      existingPlayer.connected = true;
+      this.syncPublic();
+      this.sendHand(existingPlayer.id);
+      return;
+    }
     if (this.lobbyPlayers.length >= this.publicState.maxPlayers) throw new Error("Room is full.");
-    if (this.lobbyPlayers.some((player) => player.sessionId === sessionId)) return;
 
     const player: LobbyNinetyNinePlayer = {
       id: `player-${sessionId}`,
@@ -71,6 +81,7 @@ export class NinetyNineRoomController {
       seat: this.lobbyPlayers.length,
       type: "human",
       sessionId,
+      clientId,
       connected: true,
       ready: false,
       host: !this.lobbyPlayers.some((item) => item.type === "human")
@@ -343,9 +354,9 @@ export class NinetyNineRoom extends Room {
     this.onMessage("CLOSE_ROOM", (client, message: NinetyNineClientMessage) => this.handleMessage(client, message));
   }
 
-  onJoin(client: Client, options: { nickname?: string } = {}) {
+  onJoin(client: Client, options: { nickname?: string; clientId?: string } = {}) {
     try {
-      this.controller.addHuman(client.sessionId, options.nickname ?? "玩家");
+      this.controller.addHuman(client.sessionId, options.nickname ?? "玩家", sanitizeClientId(options.clientId));
     } catch (error) {
       client.send("ninety-nine:event", reject(undefined, error));
       client.leave();
@@ -443,9 +454,13 @@ function sanitizeNickname(value: string) {
   return trimmed.slice(0, 16) || "玩家";
 }
 
+function sanitizeClientId(value: string | undefined) {
+  const sanitized = value?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
+  return sanitized || undefined;
+}
+
 function parseDifficulty(value?: string): BotDifficulty {
   if (value === "簡單" || value === "easy") return "easy";
   if (value === "困難" || value === "hard") return "hard";
   return "normal";
 }
-

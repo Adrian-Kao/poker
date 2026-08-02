@@ -74,6 +74,7 @@ export default function OldMaidPage() {
       || params.get("nickname")?.trim()
       || "玩家";
     const maxPlayers = Number(params.get("players") ?? 4);
+    const clientId = getTabClientId("old-maid");
     const client = new Client(gameServerUrl);
 
     setNickname(name);
@@ -91,12 +92,12 @@ export default function OldMaidPage() {
           mode === "join"
             ? await client.join<OldMaidRoomStateSchema>(
                 "old_maid",
-                { nickname: name, roomCode: requestedRoom },
+                { nickname: name, roomCode: requestedRoom, clientId },
                 OldMaidRoomStateSchema
               )
             : await client.create<OldMaidRoomStateSchema>(
                 "old_maid",
-                { nickname: name, maxPlayers },
+                { nickname: name, maxPlayers, clientId },
                 OldMaidRoomStateSchema
               );
 
@@ -893,6 +894,15 @@ function connectionLabel(status: ConnectionStatus) {
 function formatRoom(value: string) {
   const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-");
   return `${clean.slice(0, 3)} ${clean.slice(3)}`;
+}
+
+function getTabClientId(scope: string) {
+  const key = `poker-${scope}-client-id`;
+  const existing = window.sessionStorage.getItem(key);
+  if (existing) return existing;
+  const next = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  window.sessionStorage.setItem(key, next);
+  return next;
 }
 
 function OldMaidStyles() {

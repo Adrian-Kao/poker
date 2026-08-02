@@ -47,6 +47,7 @@ export default function NinetyNinePage() {
     const maxPlayers = Number(params.get("players") ?? 4);
     const bots = Number(params.get("bots") ?? 0);
     const difficulty = params.get("difficulty") ?? "普通";
+    const clientId = getTabClientId("ninety-nine");
     const client = new Client(gameServerUrl);
 
     setNickname(name);
@@ -58,8 +59,8 @@ export default function NinetyNinePage() {
 
         const room =
           mode === "join"
-            ? await client.join<NinetyNineRoomStateSchema>("ninety_nine", { nickname: name, roomCode: requestedRoom }, NinetyNineRoomStateSchema)
-            : await client.create<NinetyNineRoomStateSchema>("ninety_nine", { nickname: name, maxPlayers, bots, difficulty }, NinetyNineRoomStateSchema);
+            ? await client.join<NinetyNineRoomStateSchema>("ninety_nine", { nickname: name, roomCode: requestedRoom, clientId }, NinetyNineRoomStateSchema)
+            : await client.create<NinetyNineRoomStateSchema>("ninety_nine", { nickname: name, maxPlayers, bots, difficulty, clientId }, NinetyNineRoomStateSchema);
 
         if (disposed) {
           await room.leave();
@@ -124,6 +125,7 @@ export default function NinetyNinePage() {
   }, []);
 
   const rawPlayers = useMemo(() => Array.from(roomState?.players ?? []), [roomState, stateVersion]);
+  const emptySeatCount = Math.max(0, (roomState?.maxPlayers ?? 4) - rawPlayers.length);
   const ownReady = rawPlayers.find((player) => player.id === ownPlayerId)?.ready ?? false;
   const ownPlayer = rawPlayers.find((player) => player.id === ownPlayerId);
   const isHost = ownPlayer?.host ?? false;
@@ -191,6 +193,9 @@ export default function NinetyNinePage() {
           <div className="heart-lobby-list ninety-lobby-list">
             {rawPlayers.map((player) => (
               <LobbySeat key={player.id} player={player} isSelf={player.id === ownPlayerId} />
+            ))}
+            {Array.from({ length: emptySeatCount }).map((_, index) => (
+              <LobbyEmptySeat key={`empty-${index}`} seatNumber={rawPlayers.length + index + 1} />
             ))}
           </div>
           <div className="heart-lobby-actions">
@@ -336,6 +341,16 @@ function LobbySeat({ player, isSelf }: { player: PublicNinetyNinePlayer; isSelf:
   );
 }
 
+function LobbyEmptySeat({ seatNumber }: { seatNumber: number }) {
+  return (
+    <article className="heart-lobby-seat lobby-empty-seat" aria-label={`座位 ${seatNumber} 等待玩家`}>
+      <span className="empty-seat-icon" aria-hidden="true">♙</span>
+      <strong>等待玩家</strong>
+      <em>空位</em>
+    </article>
+  );
+}
+
 function OpponentSeat({ player, current }: { player: { id: string; nickname: string; seat: Seat; cardsRemaining: number; status: string; type: string; connected: boolean }; current: boolean }) {
   return (
     <article className={`rival-seat portrait-seat ${player.seat} ${current ? "active" : ""} ${player.status === "eliminated" ? "out" : ""}`}>
@@ -472,4 +487,13 @@ function difficultyName(value: string) {
 function formatRoom(value: string) {
   const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-");
   return `${clean.slice(0, 3)} ${clean.slice(3)}`;
+}
+
+function getTabClientId(scope: string) {
+  const key = `poker-${scope}-client-id`;
+  const existing = window.sessionStorage.getItem(key);
+  if (existing) return existing;
+  const next = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  window.sessionStorage.setItem(key, next);
+  return next;
 }

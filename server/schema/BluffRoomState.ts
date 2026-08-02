@@ -88,6 +88,7 @@ export type LobbyBluffPlayer = {
   type: "human" | "bot";
   botDifficulty?: string;
   sessionId?: string;
+  clientId?: string;
   connected: boolean;
   ready: boolean;
   host: boolean;

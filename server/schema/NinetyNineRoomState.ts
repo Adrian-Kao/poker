@@ -84,6 +84,7 @@ export type LobbyNinetyNinePlayer = {
   type: "human" | "bot";
   botDifficulty?: string;
   sessionId?: string;
+  clientId?: string;
   connected: boolean;
   ready: boolean;
   host: boolean;
@@ -151,4 +152,3 @@ function applyLastCard(target: PublicNinetyNineCard, card: { id: string; rank: s
   target.rank = card?.rank ?? "";
   target.suit = card?.suit ?? "";
 }
-

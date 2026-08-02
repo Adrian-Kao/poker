@@ -19,6 +19,7 @@ import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "..
 
 type LobbyPlayer = CreateHeartAttackPlayerInput & {
   sessionId?: string;
+  clientId?: string;
   connected: boolean;
   ready: boolean;
 };
@@ -64,16 +65,26 @@ export class HeartAttackRoomController {
     return this.lobbyPlayers.slice();
   }
 
-  addHuman(sessionId: string, nickname: string) {
+  addHuman(sessionId: string, nickname: string, clientId?: string) {
     if (this.gameState) throw new Error("Game already started.");
+    const existingPlayer = this.lobbyPlayers.find((player) => player.sessionId === sessionId || (clientId && player.clientId === clientId));
+    if (existingPlayer) {
+      existingPlayer.id = `player-${sessionId}`;
+      existingPlayer.sessionId = sessionId;
+      existingPlayer.clientId = clientId ?? existingPlayer.clientId;
+      existingPlayer.nickname = sanitizeNickname(nickname);
+      existingPlayer.connected = true;
+      this.syncPublic();
+      return;
+    }
     if (this.lobbyPlayers.length >= this.publicState.maxPlayers) throw new Error("Room is full.");
-    if (this.lobbyPlayers.some((player) => player.sessionId === sessionId)) return;
 
     this.lobbyPlayers.push({
       id: `player-${sessionId}`,
       nickname: sanitizeNickname(nickname),
       type: "human",
       sessionId,
+      clientId,
       connected: true,
       ready: false
     });
@@ -373,9 +384,9 @@ export class HeartAttackRoom extends Room {
     this.onMessage("CLOSE_ROOM", (client, message: HeartAttackClientMessage) => this.handleMessage(client, message));
   }
 
-  onJoin(client: Client, options: { nickname?: string } = {}) {
+  onJoin(client: Client, options: { nickname?: string; clientId?: string } = {}) {
     try {
-      this.controller.addHuman(client.sessionId, options.nickname ?? "玩家");
+      this.controller.addHuman(client.sessionId, options.nickname ?? "玩家", sanitizeClientId(options.clientId));
     } catch (error) {
       client.send("heart-attack:event", reject(undefined, error));
       client.leave();
@@ -460,4 +471,9 @@ function clampMaxPlayers(value: number) {
 function sanitizeNickname(value: string) {
   const trimmed = value.trim();
   return trimmed.slice(0, 16) || "玩家";
+}
+
+function sanitizeClientId(value: string | undefined) {
+  const sanitized = value?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
+  return sanitized || undefined;
 }

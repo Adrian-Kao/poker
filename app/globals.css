@@ -4270,6 +4270,36 @@ input[type="range"] {
   background: #45c66b;
 }
 
+.heart-lobby-seat.lobby-empty-seat {
+  border-style: dashed;
+  border-width: 4px;
+  background: rgba(255, 248, 230, 0.42);
+  box-shadow: none;
+  color: rgba(0, 0, 0, 0.58);
+  align-content: center;
+}
+
+.heart-lobby-seat.lobby-empty-seat::before,
+.heart-lobby-seat.lobby-empty-seat::after,
+.heart-lobby-seat.lobby-empty-seat .lobby-card-corner {
+  display: none;
+}
+
+.heart-lobby-seat.lobby-empty-seat .empty-seat-icon {
+  font-size: 2.25rem;
+  line-height: 1;
+  font-weight: 1000;
+}
+
+.heart-lobby-seat.lobby-empty-seat strong {
+  font-size: 1.35rem;
+}
+
+.heart-lobby-seat.lobby-empty-seat em {
+  font-size: 1rem;
+  font-style: normal;
+}
+
 .ninety-online-shell {
   min-height: 100vh;
   padding: 24px clamp(16px, 4vw, 56px) max(28px, env(safe-area-inset-bottom));

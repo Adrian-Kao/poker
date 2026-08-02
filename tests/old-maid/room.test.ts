@@ -18,6 +18,20 @@ type RecordedEvent = {
   playerId?: string;
 };
 
+test("controller deduplicates reconnects from the same browser tab", () => {
+  const controller = new OldMaidRoomController({ roomCode: "123456", random: createSeededRandom(2) });
+
+  controller.addHuman("s1", "測試二", "tab-1");
+  controller.addHuman("s2", "測試二", "tab-1");
+  controller.addHuman("s3", "測試三", "tab-2");
+  controller.setReady("s2", "ready-s2", true);
+
+  assert.equal(controller.publicState.players.length, 2);
+  assert.equal(controller.publicState.players[0]?.id, "player-s2");
+  assert.equal(controller.publicState.players[0]?.ready, true);
+  assert.equal(controller.publicState.players[1]?.nickname, "測試三");
+});
+
 test("opening phases follow server deadlines and delay the first turn", (t) => {
   const scheduler = new ManualRoomScheduler(1000);
   const { controller, events } = createOpeningController(7, scheduler);
