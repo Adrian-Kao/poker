@@ -8,6 +8,7 @@ import type { LegalNinetyNineAction, NinetyNinePhase, NinetyNinePlayChoice } fro
 import { NinetyNineRoomStateSchema, type PublicNinetyNinePlayer } from "../../../server/schema/NinetyNineRoomState";
 import type { NinetyNineServerEvent } from "../../../server/messages/ninetyNineMessages";
 import { useBgmMode } from "../../SoundProvider";
+import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, type UnifiedPlayer } from "../room";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type Seat = "self" | "top" | "left" | "right" | "upperLeft" | "upperRight";
@@ -196,6 +197,26 @@ export default function NinetyNinePage() {
   }
 
   if (phase === "waiting") {
+    return <UnifiedWaitingRoom
+      gameName="九九"
+      roomCode={roomCode}
+      status={status}
+      statusText={statusText}
+      players={rawPlayers.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type }))}
+      maxPlayers={roomState?.maxPlayers ?? 6}
+      ownId={ownPlayerId}
+      isHost={isHost}
+      canUseRoom={canUseRoom}
+      canStart={canStart}
+      allowBots
+      minPlayers={2}
+      onReady={() => send("SET_READY", { ready: !ownReady })}
+      onAddBot={() => send("ADD_BOT", { difficulty: "normal" })}
+      onStart={() => send("START_GAME")}
+      onLeave={leaveAndCloseRoom}
+    />;
+  }
+  if (false) {
     return (
       <main className="heart-auto-shell ninety-online-shell">
         <NinetyHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
@@ -244,7 +265,7 @@ export default function NinetyNinePage() {
   return (
     <main className="heart-auto-shell ninety-online-shell">
       <NinetyHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
-      <section className={`ninety-online-table phase-${phase}`}>
+      <RoomTable gameName="九九" className={`ninety-online-table phase-${phase}`}>
         {sortedPlayers.filter((player) => player.seat !== "self").map((player) => (
           <OpponentSeat key={player.id} player={player} current={player.id === roomState?.currentPlayerId} />
         ))}
@@ -280,7 +301,7 @@ export default function NinetyNinePage() {
         ) : null}
 
         <div className="self-zone ninety-self-zone">
-          <PlayerBadge playerName={nickname} current={isMyTurn} />
+          <RoomSelfBadge nickname={nickname} active={isMyTurn} count={hand.length} />
           <div className="ninety-nine-hand fan-hand online-hand" aria-label="自己的五張手牌">
             {(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card, index) => {
               const playable = isMyTurn && selectedLegalFor(card, legalActions).length > 0 && phase === "playing";
@@ -302,7 +323,7 @@ export default function NinetyNinePage() {
             })}
           </div>
         </div>
-      </section>
+      </RoomTable>
 
       <div className="bottom-command-bar ninety-command-bar">
         <SpecialOptions
@@ -328,27 +349,7 @@ export default function NinetyNinePage() {
 }
 
 function NinetyHeader({ roomCode, status, onLeave }: { roomCode: string; status: ConnectionStatus; onLeave: () => void }) {
-  return (
-    <header className="heart-auto-header">
-      <div className="brand-lockup" aria-label="鬥陣來一局">
-        <span className="brand-mark">鬥陣</span>
-        <span className="brand-title">九九</span>
-      </div>
-      <div className="header-meta">
-        <span>房號 <strong>{formatRoom(roomCode)}</strong></span>
-        <span>第 <strong>1</strong> 局</span>
-        <span className={`connection-pill ${status}`}>
-          {status === "connected" ? <Wifi size={18} /> : <WifiOff size={18} />}
-          {status === "connected" ? "已連線" : "連線中"}
-        </span>
-        <span className="real-only"><ShieldCheck size={18} />純娛樂</span>
-      </div>
-      <div className="header-actions">
-        <a className="outline-action" href="/docs/games/ninety-nine.md"><BookOpen size={21} />玩法</a>
-        <button type="button" className="leave-action" onClick={onLeave}><LogOut size={21} />離開牌局</button>
-      </div>
-    </header>
-  );
+  return <RoomHeader gameName="九九" roomCode={roomCode} status={status} docsHref="/docs/games/ninety-nine.md" onLeave={onLeave} />;
 }
 
 function LobbySeat({ player, isSelf }: { player: PublicNinetyNinePlayer; isSelf: boolean }) {
@@ -374,31 +375,9 @@ function LobbyEmptySeat({ seatNumber }: { seatNumber: number }) {
 }
 
 function OpponentSeat({ player, current }: { player: { id: string; nickname: string; seat: Seat; cardsRemaining: number; status: string; type: string; connected: boolean }; current: boolean }) {
-  return (
-    <article className={`rival-seat portrait-seat ${player.seat} ${current ? "active" : ""} ${player.status === "eliminated" ? "out" : ""}`}>
-      <div className={`text-avatar ${current ? "yellow" : "blue"}`}>{player.nickname.slice(0, 1)}</div>
-      <div className="name-stack">
-        <strong>{player.nickname}</strong>
-        <span>{player.status === "eliminated" ? "已出局" : `剩餘 ${player.cardsRemaining} 張`}</span>
-        <em>{player.type === "bot" ? "電腦" : player.connected ? "真人" : "離線"}</em>
-      </div>
-      <div className="card-back-stack wide" aria-label={`${player.nickname} 的牌背`}>
-        {Array.from({ length: Math.min(5, Math.max(1, player.cardsRemaining)) }).map((_, index) => <i key={index} />)}
-      </div>
-    </article>
-  );
-}
-
-function PlayerBadge({ playerName, current }: { playerName: string; current: boolean }) {
-  return (
-    <div className={`player-badge ${current ? "active" : ""}`}>
-      <div className="text-avatar yellow">{playerName.slice(0, 1) || "我"}</div>
-      <div>
-        <span>你的手牌</span>
-        <strong>{playerName}</strong>
-      </div>
-    </div>
-  );
+  if (player.seat === "self") return null;
+  const position = player.seat === "upperLeft" ? "upper-left" : player.seat === "upperRight" ? "upper-right" : player.seat;
+  return <RoomOpponentSeat player={{ id: player.id, nickname: player.nickname, cardsRemaining: player.cardsRemaining, status: player.status, type: player.type, connected: player.connected }} position={position} active={current} />;
 }
 
 function SpecialOptions({

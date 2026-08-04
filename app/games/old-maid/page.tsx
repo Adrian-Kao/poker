@@ -22,6 +22,7 @@ import {
   OldMaidRoomStateSchema,
   type PublicOldMaidPlayer
 } from "../../../server/schema/OldMaidRoomState";
+import { UnifiedWaitingRoom } from "../shared/UnifiedGameRoom";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type OldMaidPhase =
@@ -338,6 +339,26 @@ export default function OldMaidPage() {
   }
 
   if (phase === "waiting") {
+    return <UnifiedWaitingRoom
+      gameName="抽鬼牌"
+      roomCode={roomCode}
+      round={roomState?.round ?? 1}
+      status={status}
+      statusText={statusText}
+      players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: "human" }))}
+      maxPlayers={roomState?.maxPlayers ?? 6}
+      ownId={ownPlayerId}
+      isHost={isHost}
+      canUseRoom={canUseRoom}
+      canStart={canStart}
+      realOnly
+      minPlayers={3}
+      onReady={() => send("SET_READY", { ready: !ownReady })}
+      onStart={() => send("START_GAME")}
+      onLeave={leaveRoom}
+    />;
+  }
+  if (false) {
     return (
       <main className="old-maid-shell">
         <OldMaidHeader

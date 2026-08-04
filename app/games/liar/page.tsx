@@ -8,6 +8,7 @@ import { bluffRanks } from "../../../lib/games/bluff";
 import { BluffRoomStateSchema, type PublicBluffPlayer } from "../../../server/schema/BluffRoomState";
 import type { BluffServerEvent } from "../../../server/messages/bluffMessages";
 import { useBgmMode, useSoundControls } from "../../SoundProvider";
+import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, type UnifiedPlayer } from "../room";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type SeatPosition = "top" | "left" | "right";
@@ -237,6 +238,26 @@ export default function LiarPage() {
   }
 
   if (phase === "waiting") {
+    return <UnifiedWaitingRoom
+      gameName="吹牛"
+      roomCode={roomCode}
+      status={status}
+      statusText={statusText}
+      players={rawPlayers.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type }))}
+      maxPlayers={roomState?.maxPlayers ?? 6}
+      ownId={ownPlayerId}
+      isHost={isHost}
+      canUseRoom={canUseRoom}
+      canStart={canStart}
+      allowBots
+      minPlayers={3}
+      onReady={() => send("SET_READY", { ready: !ownReady })}
+      onAddBot={() => send("ADD_BOT", { difficulty: "normal" })}
+      onStart={() => send("START_GAME")}
+      onLeave={leaveAndCloseRoom}
+    />;
+  }
+  if (false) {
     return (
       <main className="heart-auto-shell ninety-online-shell">
         <BluffHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
@@ -286,7 +307,7 @@ export default function LiarPage() {
     <main className="bluff-page-shell">
       <BluffTopbar roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
 
-      <section className="bluff-table bluff-table-like-ninety" aria-label="吹牛牌桌">
+      <RoomTable gameName="吹牛" className="bluff-table-like-ninety">
         {opponents.map((player) => (
           <OpponentSeat key={player.id} player={player} />
         ))}
@@ -340,13 +361,7 @@ export default function LiarPage() {
               {clearingCards.map((card) => <div className="bluff-clearing-card" key={card.id}><PlayingCard card={card} /></div>)}
             </div>
           ) : null}
-          <div className="bluff-self-badge">
-            <div className="bluff-avatar yellow">{(nickname || "你").slice(0, 1)}</div>
-            <div>
-              <span>你的手牌</span>
-              <strong>{nickname}</strong>
-            </div>
-          </div>
+          <RoomSelfBadge nickname={nickname || "你"} count={hand.length} />
 
           <div className="bluff-hand">
             {(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card) => (
@@ -363,7 +378,7 @@ export default function LiarPage() {
             ))}
           </div>
         </section>
-      </section>
+      </RoomTable>
 
       <section className="bluff-bottom-controls bluff-table-controls" aria-label="喊牌與出牌">
         {isOpeningPlay ? <Stepper label="喊的數字" value={claimedRank} onDecrease={() => changeRank(-1)} onIncrease={() => changeRank(1)} /> : null}
@@ -410,36 +425,7 @@ function BluffHeader({ roomCode, status, onLeave }: { roomCode: string; status: 
 }
 
 function BluffTopbar({ roomCode, status, onLeave }: { roomCode: string; status: ConnectionStatus; onLeave: () => void }) {
-  return (
-    <header className="bluff-topbar">
-      <a className="bluff-logo" href="/" aria-label="鬥陣">
-        鬥陣
-      </a>
-      <h1>吹牛</h1>
-      <div className="bluff-meta">
-        <span>
-          房號 <b>{formatRoom(roomCode)}</b>
-        </span>
-        <span>
-          第 <b>1</b> 局
-        </span>
-        <strong>
-          <ShieldCheck size={18} />
-          {status === "connected" ? "已連線" : "連線中"}
-        </strong>
-      </div>
-      <nav className="bluff-actions" aria-label="牌局操作">
-        <button type="button">
-          <BookOpen size={22} />
-          玩法
-        </button>
-        <button type="button" onClick={onLeave}>
-          <LogOut size={22} />
-          離開牌局
-        </button>
-      </nav>
-    </header>
-  );
+  return <RoomHeader gameName="吹牛" roomCode={roomCode} status={status} docsHref="/docs/games/bluff.md" onLeave={onLeave} />;
 }
 
 function LobbySeat({ player, isSelf }: { player: PublicBluffPlayer; isSelf: boolean }) {
@@ -465,23 +451,7 @@ function LobbyEmptySeat({ seatNumber }: { seatNumber: number }) {
 }
 
 function OpponentSeat({ player }: { player: { id: string; name: string; cards: number; type: "bot" | "human"; position: SeatPosition } }) {
-  return (
-    <article className={`bluff-opponent-seat ${player.position}`}>
-      <div className="bluff-player-badge">
-        <div className="bluff-avatar">{player.name.slice(0, 1)}</div>
-        <div>
-          <strong>{player.name}</strong>
-          <span>{player.cards} 張牌</span>
-        </div>
-        {player.type === "bot" && <em>電腦</em>}
-      </div>
-      <div className="bluff-card-back-stack" aria-hidden="true">
-        {Array.from({ length: Math.min(5, Math.max(1, player.cards)) }).map((_, index) => (
-          <i key={index} />
-        ))}
-      </div>
-    </article>
-  );
+  return <RoomOpponentSeat player={{ id: player.id, nickname: player.name, cardsRemaining: player.cards, type: player.type }} position={player.position} />;
 }
 
 function Stepper({ label, value, onDecrease, onIncrease }: { label: string; value: string; onDecrease: () => void; onIncrease: () => void }) {

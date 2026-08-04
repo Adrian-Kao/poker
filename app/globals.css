@@ -182,6 +182,117 @@ a {
   }
 }
 
+/* Big Two uses the shared Bluff room geometry; only its center and command dock differ. */
+.shared-big-two-table {
+  margin: 0;
+  border-radius: 44px;
+}
+
+.shared-big-two-center {
+  top: 31%;
+  width: min(620px, calc(100% - 520px));
+}
+
+.big-two-self-zone {
+  bottom: 18px;
+  width: min(1240px, calc(100% - 160px));
+}
+
+.big-two-self-zone .big-two-hand {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  width: 100%;
+  max-width: none;
+  min-height: 190px;
+  align-items: end;
+  overflow-x: auto;
+  padding: 28px 24px 10px;
+  transform: none;
+  scrollbar-width: thin;
+}
+
+.big-two-shared-controls {
+  width: min(860px, calc(100% - 24px));
+  align-items: stretch;
+}
+
+.big-two-shared-controls > * {
+  min-height: 76px;
+}
+
+.big-two-combination {
+  flex: 1 1 320px;
+  display: grid;
+  place-items: center;
+  padding: 12px 18px;
+  border: 5px solid var(--ink);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: 6px 6px 0 var(--ink);
+  text-align: center;
+}
+
+.big-two-combination.legal {
+  background: #dff6df;
+}
+
+.big-two-shared-controls button {
+  flex: 0 0 170px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 5px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 6px 6px 0 var(--ink);
+  font-size: 1.55rem;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.big-two-shared-controls button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+@media (max-width: 760px) {
+  .shared-big-two-center {
+    top: 32%;
+    width: calc(100% - 24px);
+  }
+
+  .big-two-self-zone {
+    bottom: 8px;
+    width: 100%;
+  }
+
+  .big-two-self-zone .big-two-hand {
+    min-height: 150px;
+    justify-content: flex-start;
+    padding-inline: 26px;
+  }
+
+  .big-two-card-button {
+    flex: 0 0 72px;
+    width: 72px;
+    margin-left: -14px;
+  }
+
+  .big-two-shared-controls {
+    flex-wrap: wrap;
+  }
+
+  .big-two-combination {
+    flex-basis: 100%;
+  }
+
+  .big-two-shared-controls button {
+    flex: 1 1 130px;
+  }
+}
+
 /* Pick red points table: each zone owns a grid area so cards never cover status panels. */
 .red-dot-page {
   width: min(1500px, calc(100% - 32px));
@@ -2605,6 +2716,152 @@ input[type="range"] {
   .slap-status.danger {
     animation: none;
   }
+}
+
+/* Big Two keeps the shared blue, yellow, cream and black table language. */
+.big-two-shell {
+  min-height: 100vh;
+  padding: 18px clamp(12px, 3vw, 42px) 34px;
+  background: var(--cream);
+  color: var(--black);
+}
+
+.big-two-header {
+  width: min(1540px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) auto minmax(230px, 1fr);
+  align-items: center;
+  gap: 24px;
+  min-height: 88px;
+}
+
+.big-two-brand,
+.big-two-meta,
+.big-two-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.big-two-brand-mark {
+  display: inline-grid;
+  place-items: center;
+  min-width: 132px;
+  padding: 8px 13px;
+  border: 5px solid var(--black);
+  background: var(--blue);
+  color: white;
+  box-shadow: 6px 6px 0 var(--black);
+  font-size: clamp(1.65rem, 3vw, 2.45rem);
+  font-weight: 1000;
+  transform: rotate(-2deg);
+}
+
+.big-two-brand strong { font-size: clamp(2rem, 4vw, 3.25rem); white-space: nowrap; }
+.big-two-meta { justify-content: center; font-weight: 950; font-size: 1.25rem; white-space: nowrap; }
+.big-two-meta b { color: var(--blue); font-size: 1.45em; }
+.big-two-connected { display: inline-flex; align-items: center; gap: 7px; padding: 10px 14px; border: 4px solid var(--black); border-radius: 999px; background: #70ce76; }
+.big-two-header-actions { justify-content: end; }
+.big-two-header-actions a,
+.big-two-header-actions button { display: inline-flex; align-items: center; gap: 8px; min-height: 54px; padding: 10px 18px; border: 5px solid var(--black); border-radius: 16px; background: white; color: var(--black); box-shadow: 5px 5px 0 var(--black); font-weight: 950; text-decoration: none; cursor: pointer; }
+.big-two-header-actions button { background: #ff625c; color: white; }
+
+.big-two-table {
+  position: relative;
+  width: min(1540px, 100%);
+  min-height: clamp(760px, 72vh, 900px);
+  margin: 14px auto 0;
+  overflow: hidden;
+  border: 6px solid var(--black);
+  border-radius: 48% / 22%;
+  background: radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.14), transparent 22%), linear-gradient(135deg, #2f66ff, var(--blue));
+  box-shadow: 12px 12px 0 var(--black);
+}
+
+.big-two-opponent { position: absolute; z-index: 2; display: grid; justify-items: center; gap: 9px; width: 260px; }
+.big-two-opponent.top { top: 20px; left: 50%; transform: translateX(-50%); }
+.big-two-opponent.left { top: 164px; left: 28px; }
+.big-two-opponent.right { top: 164px; right: 28px; }
+.big-two-opponent.active .big-two-opponent-badge { outline: 5px solid var(--yellow); outline-offset: 5px; }
+.big-two-opponent-badge { display: flex; align-items: center; width: 100%; min-height: 78px; padding: 8px 12px 8px 8px; border: 5px solid var(--black); border-radius: 20px; background: var(--paper); box-shadow: 6px 6px 0 var(--black); }
+.big-two-opponent-badge > span,
+.big-two-self-avatar { display: grid; place-items: center; flex: 0 0 58px; width: 58px; height: 58px; border: 4px solid var(--black); border-radius: 50%; background: var(--blue); color: white; font-size: 1.8rem; font-weight: 1000; }
+.big-two-opponent-badge.yellow > span { background: var(--yellow); color: var(--black); }
+.big-two-opponent-badge.coral > span { background: #ff625c; }
+.big-two-opponent-badge div { display: grid; gap: 3px; margin-left: 10px; text-align: left; }
+.big-two-opponent-badge strong { font-size: 1.45rem; }
+.big-two-opponent-badge b { color: var(--blue); }
+.big-two-back-stack { display: flex; justify-content: center; height: 88px; padding-left: 22px; }
+.big-two-back-stack i { width: 48px; height: 82px; margin-left: -22px; border: 4px solid var(--black); border-radius: 8px; background: repeating-linear-gradient(45deg, #1358d9 0 5px, #a8c3ff 5px 8px); box-shadow: 4px 4px 0 rgba(0,0,0,.35); transform: rotate(calc((var(--index, 0) - 5) * 2deg)); }
+
+.big-two-center { position: absolute; z-index: 4; top: 235px; left: 50%; width: min(610px, calc(100% - 560px)); transform: translateX(-50%); }
+.big-two-turn-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.big-two-turn-row strong { flex: 1; padding: 12px 20px; border: 5px solid var(--black); background: var(--yellow); box-shadow: 7px 7px 0 var(--black); text-align: center; font-size: clamp(1.7rem, 3vw, 2.5rem); }
+.big-two-countdown { display: inline-flex; align-items: center; gap: 6px; padding: 11px 14px; border: 5px solid var(--black); border-radius: 999px; background: var(--paper); box-shadow: 5px 5px 0 var(--black); font-size: 1.35rem; font-weight: 950; white-space: nowrap; }
+.big-two-previous-panel { margin-top: 16px; padding: 15px 20px 18px; border: 5px solid var(--black); border-radius: 20px; background: var(--paper); box-shadow: 7px 7px 0 var(--black); text-align: center; }
+.big-two-previous-panel h2 { margin: 0 0 10px; padding: 6px; background: var(--black); color: var(--yellow); font-size: 1.15rem; }
+.big-two-previous-cards { display: flex; justify-content: center; gap: 7px; }
+.big-two-previous-panel p { margin: 10px 0 0; color: var(--blue); font-weight: 950; }
+.big-two-card { display: grid; }
+.big-two-card.red { color: #dc2b20; }
+.big-two-card.black { color: #121212; }
+.big-two-card span,
+.big-two-card em,
+.big-two-card strong { line-height: 1; font-style: normal; font-weight: 950; }
+.big-two-card span { font-size: 2.3rem; }
+.big-two-card em { justify-self: end; font-size: 2.1rem; }
+.big-two-card strong { place-self: center; color: inherit; font-size: 3.4rem; opacity: .18; }
+.big-two-card.compact { width: 86px; border-width: 4px; border-radius: 8px; padding: 8px; box-shadow: 4px 4px 0 rgba(16, 16, 16, .42); }
+.big-two-card.compact span { font-size: 1.7rem; }
+.big-two-card.compact em { font-size: 1.5rem; }
+
+.big-two-self-label { position: absolute; left: 38px; bottom: 142px; z-index: 5; display: grid; grid-template-columns: 62px auto; align-items: center; column-gap: 11px; padding: 8px 16px 8px 8px; border: 5px solid var(--black); border-radius: 20px; background: var(--paper); box-shadow: 6px 6px 0 var(--black); }
+.big-two-self-avatar { background: var(--yellow); color: var(--black); }
+.big-two-self-label strong { font-size: 1.55rem; }
+.big-two-self-label b { grid-column: 2; color: var(--blue); }
+.big-two-hand { position: absolute; left: 50%; bottom: 28px; z-index: 4; display: flex; justify-content: center; max-width: calc(100% - 310px); transform: translateX(-50%); }
+.big-two-card-button { position: relative; width: 88px; margin-left: -18px; padding: 0; border: 0; background: transparent; cursor: pointer; transition: transform 140ms ease; }
+.big-two-card-button:first-child { margin-left: 0; }
+.big-two-card-button:hover, .big-two-card-button.selected { z-index: 3; transform: translateY(-22px); }
+.big-two-card-button.selected .big-two-card { border-color: var(--yellow); outline: 4px solid var(--black); box-shadow: 0 0 0 8px var(--yellow), 6px 6px 0 var(--black); }
+.big-two-controls { position: absolute; right: 34px; bottom: 42px; z-index: 6; display: grid; gap: 14px; width: 190px; }
+.big-two-controls button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 70px; border: 5px solid var(--black); border-radius: 15px; box-shadow: 6px 6px 0 var(--black); font-size: 1.75rem; font-weight: 1000; cursor: pointer; }
+.big-two-play-button { background: var(--yellow); color: var(--black); }
+.big-two-pass-button { background: #ff625c; color: white; }
+.big-two-controls button:disabled { cursor: not-allowed; filter: grayscale(1); opacity: .55; }
+
+@media (max-width: 1050px) {
+  .big-two-header { grid-template-columns: 1fr; gap: 14px; }
+  .big-two-meta, .big-two-header-actions { justify-content: start; flex-wrap: wrap; }
+  .big-two-table { min-height: 860px; border-radius: 34px; }
+  .big-two-center { top: 265px; width: min(600px, calc(100% - 40px)); }
+  .big-two-opponent.left { left: 14px; top: 150px; scale: .82; transform-origin: left top; }
+  .big-two-opponent.right { right: 14px; top: 150px; scale: .82; transform-origin: right top; }
+  .big-two-self-label { left: 18px; bottom: 168px; }
+  .big-two-hand { left: 50%; bottom: 28px; max-width: calc(100% - 28px); transform: translateX(-50%) scale(.8); transform-origin: bottom center; }
+  .big-two-controls { right: 18px; bottom: 170px; width: 150px; scale: .82; transform-origin: right bottom; }
+}
+
+@media (max-width: 650px) {
+  .big-two-shell { padding-inline: 10px; }
+  .big-two-brand { justify-content: center; }
+  .big-two-meta { justify-content: center; font-size: 1rem; }
+  .big-two-header-actions { justify-content: center; }
+  .big-two-table { min-height: 930px; border-radius: 28px; }
+  .big-two-opponent.top { top: 14px; }
+  .big-two-opponent.left { top: 150px; left: 4px; scale: .62; }
+  .big-two-opponent.right { top: 150px; right: 4px; scale: .62; }
+  .big-two-center { top: 300px; width: calc(100% - 24px); }
+  .big-two-turn-row { align-items: stretch; flex-direction: column; }
+  .big-two-countdown { justify-content: center; }
+  .big-two-previous-cards { gap: 2px; }
+  .big-two-card.compact { width: 52px; height: 72px; padding: 5px; border-width: 3px; }
+  .big-two-card.compact b { font-size: 1.1rem; }
+  .big-two-card.compact em { font-size: 1.15rem; }
+  .big-two-self-label { left: 10px; bottom: 160px; scale: .75; transform-origin: left bottom; }
+  .big-two-hand { bottom: 26px; scale: .52; }
+  .big-two-controls { right: 10px; bottom: 150px; scale: .65; }
 }
 
 @media (max-width: 1000px) {
@@ -6373,3 +6630,296 @@ input[type="range"] {
 }
 
 
+/* Shared game room foundation. Game pages may add center content and controls only. */
+.shared-room-layout {
+  width: min(1540px, 100%);
+  margin: 0 auto;
+}
+
+.shared-room-table {
+  width: 100%;
+  min-height: clamp(720px, 74vh, 900px);
+}
+
+.room-topbar .room-connection.connected {
+  background: #6bc875;
+  color: var(--ink);
+}
+
+.room-topbar .room-connection.error,
+.room-topbar .room-connection.closed {
+  background: #f25b52;
+}
+
+.room-topbar .room-entertainment {
+  background: var(--yellow);
+}
+
+.room-topbar .bluff-actions a {
+  background: white;
+  color: #153de0;
+}
+
+.room-topbar .bluff-actions button {
+  background: #f25b52;
+  color: white;
+}
+
+.room-opponent-seat.upper-left {
+  top: 92px;
+  left: 72px;
+}
+
+.room-opponent-seat.upper-right {
+  top: 92px;
+  right: 72px;
+}
+
+.room-opponent-seat.active .bluff-player-badge,
+.room-self-badge.active {
+  outline: 7px solid var(--yellow);
+  outline-offset: 5px;
+}
+
+.room-opponent-seat.finished {
+  opacity: 0.62;
+}
+
+.room-seat-state {
+  position: absolute;
+  top: 112px;
+  left: 50%;
+  z-index: 6;
+  min-width: 112px;
+  padding: 7px 12px;
+  border: 4px solid var(--ink);
+  border-radius: 8px;
+  background: var(--yellow);
+  box-shadow: 4px 4px 0 var(--ink);
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.room-seat-state.pass {
+  background: #f25b52;
+  color: white;
+}
+
+.room-self-badge em {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.8rem;
+  font-style: normal;
+}
+
+.shared-room-controls {
+  width: min(760px, calc(100% - 24px));
+  margin: 20px auto 0;
+}
+
+@media (max-width: 760px) {
+  .shared-room-table {
+    min-height: 690px;
+  }
+
+  .room-opponent-seat.upper-left {
+    top: 92px;
+    left: -30px;
+  }
+
+  .room-opponent-seat.upper-right {
+    top: 92px;
+    right: -30px;
+  }
+}
+
+/* Final shared room geometry. Keep game-specific center content and controls local. */
+.shared-room-table,
+.shared-room-table.ninety-online-table,
+.shared-room-table.heart-auto-table,
+.shared-room-table.red-dot-board,
+.shared-room-table.shared-big-two-table {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  min-height: clamp(720px, 74vh, 900px);
+  margin: 0;
+  overflow: hidden;
+  border: 7px solid var(--ink);
+  border-radius: 44px;
+  background:
+    radial-gradient(circle at 28% 20%, rgba(255, 255, 255, 0.14), transparent 22%),
+    linear-gradient(135deg, #2f66ff, var(--blue));
+  box-shadow: 12px 12px 0 rgba(16, 16, 16, 0.42);
+}
+
+.shared-room-table .room-opponent-seat {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.shared-room-table .room-opponent-seat.top {
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.shared-room-table .room-opponent-seat.left {
+  top: 300px;
+  left: 54px;
+}
+
+.shared-room-table .room-opponent-seat.right {
+  top: 300px;
+  right: 54px;
+}
+
+.shared-room-table .room-opponent-seat.upper-left {
+  top: 96px;
+  left: 92px;
+}
+
+.shared-room-table .room-opponent-seat.upper-right {
+  top: 96px;
+  right: 92px;
+}
+
+.shared-room-table .room-opponent-seat .bluff-player-badge {
+  position: relative;
+  min-width: 210px;
+  grid-template-columns: auto 1fr auto;
+  padding: 10px 14px;
+  border-width: 5px;
+  border-radius: 18px;
+}
+
+.shared-room-table .room-opponent-seat .bluff-avatar {
+  width: 58px;
+  border-radius: 999px;
+  font-size: 1.75rem;
+}
+
+.shared-big-two-center {
+  top: 31%;
+  width: min(620px, calc(100% - 520px));
+}
+
+.big-two-self-zone {
+  bottom: 18px;
+  width: min(1240px, calc(100% - 160px));
+}
+
+.big-two-self-zone .big-two-hand {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  width: 100%;
+  max-width: none;
+  min-height: 190px;
+  align-items: end;
+  overflow-x: auto;
+  padding: 28px 24px 10px;
+  transform: none;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 1100px) {
+  .shared-room-table .room-opponent-seat.left {
+    top: 250px;
+    left: 20px;
+  }
+
+  .shared-room-table .room-opponent-seat.right {
+    top: 250px;
+    right: 20px;
+  }
+
+  .shared-room-table .room-opponent-seat.upper-left,
+  .shared-room-table .room-opponent-seat.upper-right {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .shared-room-table,
+  .shared-room-table.ninety-online-table,
+  .shared-room-table.heart-auto-table,
+  .shared-room-table.red-dot-board,
+  .shared-room-table.shared-big-two-table {
+    min-height: 760px;
+    border-width: 5px;
+    border-radius: 28px;
+  }
+
+  .shared-room-table .room-opponent-seat {
+    scale: 0.76;
+    transform-origin: top center;
+  }
+
+  .shared-room-table .room-opponent-seat.top {
+    top: 12px;
+    transform: translateX(-50%) scale(0.76);
+  }
+
+  .shared-room-table .room-opponent-seat.left {
+    top: 142px;
+    left: -38px;
+  }
+
+  .shared-room-table .room-opponent-seat.right {
+    top: 142px;
+    right: -38px;
+  }
+
+  .shared-big-two-center {
+    top: 34%;
+    width: calc(100% - 24px);
+  }
+
+  .big-two-self-zone {
+    bottom: 8px;
+    width: 100%;
+  }
+
+  .big-two-self-zone .big-two-hand {
+    min-height: 150px;
+    justify-content: flex-start;
+    padding-inline: 26px;
+  }
+}
+
+/* Big Two reserves a clear lane between the center trick and the player's hand. */
+.shared-room-table.shared-big-two-table {
+  min-height: 880px;
+}
+
+.shared-room-table .shared-big-two-center {
+  top: 180px;
+}
+
+.big-two-shared-controls {
+  width: min(860px, calc(100% - 24px));
+  margin: 20px auto 0;
+  align-items: stretch;
+}
+
+.big-two-shared-controls > * {
+  min-height: 76px;
+}
+
+@media (max-width: 760px) {
+  .shared-room-table.shared-big-two-table {
+    min-height: 920px;
+  }
+
+  .shared-room-table .shared-big-two-center {
+    top: 210px;
+  }
+
+  .big-two-shared-controls {
+    flex-wrap: wrap;
+  }
+}

@@ -7,7 +7,7 @@ import { games, type Game } from "./data/games";
 import { useSoundControls } from "./SoundProvider";
 
 const difficultyOptions = ["簡單", "普通", "困難"];
-const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar", "old-maid", "red-dot"]);
+const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar", "old-maid", "red-dot", "big2"]);
 
 export default function Home() {
   const router = useRouter();

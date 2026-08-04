@@ -3,6 +3,7 @@
 import { Bot, CheckCircle2, Clock3, GripHorizontal, Hand, LogOut, Play, RotateCcw, ShieldCheck, SkipForward, Sparkles, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getGame, type GameId } from "../data/games";
+import { UnifiedWaitingRoom, type UnifiedPlayer } from "./shared/UnifiedGameRoom";
 
 type NinetyNineCard = {
   id: string;
@@ -103,7 +104,7 @@ export default function GameTablePage({ gameId }: { gameId: GameId }) {
   }
 
   if (game.id === "big2" || game.id === "sevens" || game.id === "red-dot") {
-    return <StaticWaitingRoom game={game} roomCode={roomCode} nickname={nickname} />;
+    return <SharedStaticWaitingRoom game={game} roomCode={roomCode} nickname={nickname} />;
   }
 
   return (
@@ -141,6 +142,29 @@ export default function GameTablePage({ gameId }: { gameId: GameId }) {
       </section>
     </main>
   );
+}
+
+function SharedStaticWaitingRoom({ game, roomCode, nickname }: { game: NonNullable<ReturnType<typeof getGame>>; roomCode: string; nickname: string }) {
+  const [ready, setReady] = useState(false);
+  const players: UnifiedPlayer[] = [{ id: "self", seat: 0, nickname: nickname || "玩家", host: true, ready, type: "human" }];
+  return <UnifiedWaitingRoom
+    gameName={game.name}
+    roomCode={roomCode}
+    status="connected"
+    statusText={`${game.name} 房間已建立，分享房號邀請朋友。`}
+    players={players}
+    maxPlayers={game.max}
+    ownId="self"
+    isHost
+    canUseRoom
+    canStart={false}
+    allowBots={Boolean(game.bots)}
+    realOnly={Boolean(game.realOnly)}
+    minPlayers={game.min}
+    onReady={() => setReady((value) => !value)}
+    onStart={() => undefined}
+    onLeave={() => { window.location.href = "/"; }}
+  />;
 }
 
 function StaticWaitingRoom({ game, roomCode, nickname }: { game: NonNullable<ReturnType<typeof getGame>>; roomCode: string; nickname: string }) {

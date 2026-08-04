@@ -8,6 +8,7 @@ import type { PickRedPointsPhase } from "../../../lib/games/pick-red-points";
 import { PickRedPointsRoomStateSchema, type PublicPickRedPlayer } from "../../../server/schema/PickRedPointsRoomState";
 import type { PickRedPointsServerEvent } from "../../../server/messages/pickRedPointsMessages";
 import { useBgmMode } from "../../SoundProvider";
+import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, type UnifiedPlayer } from "../room";
 
 const serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
 const marks: Record<Suit, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
@@ -82,15 +83,32 @@ export default function RedDotPage() {
   function playSelected() { if (selectedCard && isMyTurn && phase === "playing-hand") send("PLAY_HAND_CARD", { cardId: selectedCard.id }); }
   function chooseTarget(targetCardId: string) { if (isMyTurn && targetIds.has(targetCardId)) send("SELECT_CAPTURE_TARGET", { targetCardId, pendingSource: state?.phase === "selecting-draw-target" ? "draw" : "hand" }); }
 
-  if (phase === "waiting") return <WaitingRoom state={state} players={players} ownId={ownId} isHost={isHost} roomCode={roomCode} status={status} message={message} onSend={send} onLeave={leaveRoom} />;
+  if (phase === "waiting") return <UnifiedWaitingRoom
+    gameName="撿紅點"
+    roomCode={roomCode}
+    status={status}
+    statusText={message}
+    players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type }))}
+    maxPlayers={state?.maxPlayers ?? 4}
+    ownId={ownId}
+    isHost={isHost}
+    canUseRoom={status === "connected" && !!roomRef.current}
+    canStart={players.length >= 2 && players.every((player) => player.ready)}
+    allowBots
+    minPlayers={2}
+    onReady={() => send("SET_READY", { ready: !players.find((player) => player.id === ownId)?.ready })}
+    onAddBot={() => send("ADD_BOT", { difficulty: "normal" })}
+    onStart={() => send("START_GAME")}
+    onLeave={leaveRoom}
+  />;
 
   return (
     <main className="red-dot-page">
       <RedDotHeader roomCode={roomCode} round={state?.round ?? 1} onLeave={leaveRoom} />
-      <section className="red-dot-board" aria-label="撿紅點牌桌">
-        <div className="red-dot-opponent red-top"><OpponentCard player={players.find((player) => player.seat === 1)} current={state?.currentPlayerId === players.find((player) => player.seat === 1)?.id} /></div>
-        <div className="red-dot-opponent red-left"><OpponentCard player={players.find((player) => player.seat === 2)} current={state?.currentPlayerId === players.find((player) => player.seat === 2)?.id} /></div>
-        <div className="red-dot-opponent red-right"><OpponentCard player={players.find((player) => player.seat === 3)} current={state?.currentPlayerId === players.find((player) => player.seat === 3)?.id} /></div>
+      <RoomTable gameName="撿紅點" className="red-dot-board">
+        <OpponentCard player={players.find((player) => player.seat === 1)} position="top" current={state?.currentPlayerId === players.find((player) => player.seat === 1)?.id} />
+        <OpponentCard player={players.find((player) => player.seat === 2)} position="left" current={state?.currentPlayerId === players.find((player) => player.seat === 2)?.id} />
+        <OpponentCard player={players.find((player) => player.seat === 3)} position="right" current={state?.currentPlayerId === players.find((player) => player.seat === 3)?.id} />
 
         <div className="red-dot-center">
           <div className="red-score-box"><span>目前</span><strong>{own?.score ?? 0}</strong><em>分</em></div>
@@ -107,12 +125,12 @@ export default function RedDotPage() {
         ) : null}
 
         <div className="red-dot-self">
-          <div className="self-info"><div className="text-avatar blue">{(nickname || "我").slice(0, 1)}</div><div><strong>{nickname}</strong><span>我的牌 {hand.length} 張 · {own?.score ?? 0} 分</span></div></div>
+          <RoomSelfBadge nickname={nickname || "我"} active={isMyTurn} count={hand.length} />
           <div className="red-dot-hand" aria-label="自己的手牌">{(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card) => <button className={`red-card hand-card ${card.id === selectedId ? "selected" : ""}`} key={card.id} type="button" onClick={() => setSelectedId(card.id)} aria-pressed={card.id === selectedId} aria-label={`${labels[card.suit]}${card.rank}手牌`}>{cardContent(card.rank, card.suit)}</button>)}</div>
           <div className="red-dot-instruction">選一張手牌，再選桌牌配對</div>
         </div>
         <div className="red-dot-actions"><div className="red-countdown"><Clock3 size={20} />{countdown || "--"} 秒</div><button className="red-confirm" type="button" onClick={playSelected} disabled={!selectedCard || !isMyTurn || phase !== "playing-hand"}><Play size={22} />確認出牌</button></div>
-      </section>
+      </RoomTable>
     </main>
   );
 }
@@ -123,8 +141,11 @@ function WaitingRoom({ state, players, ownId, isHost, roomCode, status, message,
   return <main className="heart-auto-shell ninety-online-shell"><RedDotHeader roomCode={roomCode} round={state?.round ?? 1} onLeave={onLeave} /><section className="heart-waiting-room ninety-waiting-room"><div className="waiting-room-title"><span className="stamp">等待室</span><h1>撿紅點 房間</h1></div><div className="waiting-room-code"><span>{formatRoom(roomCode)}</span><button type="button" onClick={() => navigator.clipboard?.writeText(roomCode)}>複製房號</button></div><div className="heart-lobby-list ninety-lobby-list">{players.map((player) => <article className={`heart-lobby-seat ${player.ready ? "ready" : ""}`} key={player.id}><span className="lobby-card-corner">{player.nickname.slice(0, 1)}</span><span>座位 {player.seat + 1}{player.host ? " · 房主" : ""}</span><strong>{player.nickname}{player.id === ownId ? "（你）" : ""}</strong><em>{player.type === "bot" ? "電腦玩家" : "真人玩家"}</em><b>{player.ready ? "已準備" : "未準備"}</b></article>)}{Array.from({ length: emptySeats }).map((_, index) => <article className="heart-lobby-seat lobby-empty-seat" key={`empty-${index}`} aria-label={`座位 ${players.length + index + 1} 等待玩家`}><span className="empty-seat-icon" aria-hidden="true">♙</span><strong>等待玩家</strong><em>空位</em></article>)}</div><div className="heart-lobby-actions"><button className={`ready-button ${ownReady ? "is-ready" : ""}`} type="button" onClick={() => onSend("SET_READY", { ready: !ownReady })}><CheckCircle2 size={22} />{ownReady ? "取消準備" : "我準備好了"}</button>{isHost && <><button className="ready-button bot-button" type="button" onClick={() => onSend("ADD_BOT", { difficulty: "普通" })} disabled={players.length >= (state?.maxPlayers ?? 4)}><Bot size={22} />加電腦補位</button><button className="play-card-button compact-action" type="button" onClick={() => onSend("START_GAME")} disabled={players.length < 2 || !players.every((player) => player.ready)}><Play size={20} />開始遊戲</button></>}</div><p className={`connection-note ${status}`}>{message}</p></section></main>;
 }
 
-function RedDotHeader({ roomCode, round, onLeave }: { roomCode: string; round: number; onLeave: () => void }) { return <header className="game-topbar image-style"><a className="table-logo sticker-logo" href="/" aria-label="回到首頁">鬥陣</a><div className="table-title-pack inline-title"><h2>撿紅點</h2></div><div className="table-meta"><span>房號 <b>{formatRoom(roomCode)}</b></span><span>第 <b>{round}</b> 局</span></div><div className="topbar-actions"><a href="/docs/games/pick-red-points.md"><BookOpen size={19} />玩法</a><button className="leave" type="button" onClick={onLeave}><LogOut size={19} />離開牌局</button></div></header>; }
-function OpponentCard({ player, current }: { player?: PublicPickRedPlayer; current: boolean }) { return <article className={`red-opponent-card ${current ? "active" : ""}`}>{player ? <><div className="text-avatar yellow">{player.nickname.slice(0, 1)}</div><div><strong>{player.nickname}</strong><span>{player.cardsRemaining} 張 · {player.score} 分</span><em>{player.type === "bot" ? "電腦" : "真人"}</em></div></> : <><Users /><strong>等待玩家</strong></>}</article>; }
+function RedDotHeader({ roomCode, round, onLeave }: { roomCode: string; round: number; onLeave: () => void }) { return <RoomHeader gameName="撿紅點" roomCode={roomCode} round={round} status="connected" docsHref="/docs/games/pick-red-points.md" onLeave={onLeave} />; }
+function OpponentCard({ player, position, current }: { player?: PublicPickRedPlayer; position: "top" | "left" | "right"; current: boolean }) {
+  if (!player) return null;
+  return <RoomOpponentSeat player={{ id: player.id, nickname: player.nickname, cardsRemaining: player.cardsRemaining, type: player.type, connected: player.connected }} position={position} active={current} />;
+}
 function cardContent(rank: Rank, suit: Suit) { return <><span>{rank}</span><em>{marks[suit]}</em></>; }
 function formatRoom(value: string) { const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-"); return `${clean.slice(0, 3)} ${clean.slice(3)}`; }
 function getTabClientId(game: string) { const key = `poker:${game}:client-id`; const existing = window.sessionStorage.getItem(key); if (existing) return existing; const id = `${game}-${crypto.randomUUID()}`; window.sessionStorage.setItem(key, id); return id; }

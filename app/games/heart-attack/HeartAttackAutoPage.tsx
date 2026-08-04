@@ -8,6 +8,7 @@ import { HeartAttackRoomStateSchema, type PublicHeartAttackPlayer } from "../../
 import type { HeartAttackPhase, PenaltyReason, PenaltyResult } from "../../../lib/games/heart-attack";
 import type { HeartAttackServerEvent } from "../../../server/messages/heartAttackMessages";
 import { useBgmMode } from "../../SoundProvider";
+import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, type UnifiedPlayer } from "../room";
 
 type Suit = "spades" | "hearts" | "diamonds" | "clubs";
 type DemoCard = { id: string; rank: string; suit: Suit };
@@ -148,6 +149,7 @@ export default function HeartAttackAutoPage() {
   const emptySeatCount = Math.max(0, (roomState?.maxPlayers ?? 4) - rawPlayers.length);
   const players = useMemo(() => mapPlayers(roomState, ownPlayerId, nickname), [roomState, ownPlayerId, nickname, stateVersion]);
   const ownPlayer = players.find((player) => player.seat === "self") ?? fallbackPlayers[0];
+  const isHost = rawPlayers[0]?.id === ownPlayerId;
   const ownReady = rawPlayers.find((player) => player.id === ownPlayerId)?.ready ?? false;
   const currentPlayer = players.find((player) => player.id === roomState?.currentPlayerId) ?? ownPlayer;
   const phase = (roomState?.phase ?? "waiting") as HeartAttackPhase;
@@ -183,6 +185,25 @@ export default function HeartAttackAutoPage() {
   }
 
   if (phase === "waiting") {
+    return <UnifiedWaitingRoom
+      gameName="心臟病"
+      roomCode={roomCode}
+      status={status}
+      statusText={statusText}
+      players={rawPlayers.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.id === rawPlayers[0]?.id, ready: player.ready, type: player.type }))}
+      maxPlayers={roomState?.maxPlayers ?? 4}
+      ownId={ownPlayerId}
+      isHost={isHost}
+      canUseRoom={canUseRoom}
+      canStart={canStart}
+      realOnly
+      minPlayers={3}
+      onReady={() => send("SET_READY", { ready: !ownReady })}
+      onStart={() => send("START_GAME")}
+      onLeave={leaveAndCloseRoom}
+    />;
+  }
+  if (false) {
     return (
       <main className="heart-auto-shell">
         <HeartHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
@@ -226,7 +247,7 @@ export default function HeartAttackAutoPage() {
     <main className="heart-auto-shell">
       <HeartHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
 
-      <section className={`heart-auto-table phase-${phase}`}>
+      <RoomTable gameName="心臟病" className={`heart-auto-table phase-${phase}`}>
         {players.filter((player) => player.seat !== "self").map((player) => (
           <Opponent key={player.seat} player={player} current={player.id === roomState?.currentPlayerId} />
         ))}
@@ -256,7 +277,7 @@ export default function HeartAttackAutoPage() {
         ) : null}
 
         <div className="self-zone">
-          <PlayerBadge player={ownPlayer} current={ownPlayer.id === roomState?.currentPlayerId} />
+          <RoomSelfBadge nickname={ownPlayer.nickname} active={ownPlayer.id === roomState?.currentPlayerId} count={ownPlayer.cardsRemaining} />
           <div className="self-hand" aria-label="我的牌堆">
             {Array.from({ length: Math.min(8, ownPlayer.cardsRemaining) }).map((_, index) => (
               <div key={index} className="card-back mini" style={{ "--offset": `${index * 13}px` } as CSSProperties}>鬥</div>
@@ -264,7 +285,7 @@ export default function HeartAttackAutoPage() {
           </div>
           <div className="self-count">剩餘 {ownPlayer.cardsRemaining} 張</div>
         </div>
-      </section>
+      </RoomTable>
 
       <div className="heart-slap-dock">
         <button type="button" className="slap-button docked-slap-button" onClick={slap} disabled={!canSlap}>
@@ -278,27 +299,7 @@ export default function HeartAttackAutoPage() {
 }
 
 function HeartHeader({ roomCode, status, onLeave }: { roomCode: string; status: ConnectionStatus; onLeave: () => void }) {
-  return (
-    <header className="heart-auto-header">
-      <div className="brand-lockup" aria-label="鬥陣來一局">
-        <span className="brand-mark">鬥陣</span>
-        <span className="brand-title">心臟病</span>
-      </div>
-      <div className="header-meta">
-        <span>房號 <strong>{formatRoom(roomCode)}</strong></span>
-        <span>第 <strong>1</strong> 局</span>
-        <span className={`connection-pill ${status}`}>
-          {status === "connected" ? <Wifi size={18} /> : <WifiOff size={18} />}
-          {status === "connected" ? "已連線" : "連線中"}
-        </span>
-        <span className="real-only"><ShieldCheck size={18} />只限真人優先</span>
-      </div>
-      <div className="header-actions">
-        <button type="button" className="outline-action"><BookOpen size={21} />玩法</button>
-        <button type="button" className="leave-action" onClick={onLeave}><LogOut size={21} />離開牌局</button>
-      </div>
-    </header>
-  );
+  return <RoomHeader gameName="心臟病" roomCode={roomCode} status={status} realOnly docsHref="/docs/games/heart-attack.md" onLeave={onLeave} />;
 }
 
 function LobbySeat({ player, index, isSelf }: { player: PublicHeartAttackPlayer; index: number; isSelf: boolean }) {
@@ -324,26 +325,8 @@ function LobbyEmptySeat({ seatNumber }: { seatNumber: number }) {
 }
 
 function Opponent({ player, current }: { player: TablePlayer; current: boolean }) {
-  return (
-    <div className={`opponent-seat seat-${player.seat} ${current ? "is-current" : ""} ${player.connected ? "" : "disconnected"}`}>
-      <PlayerBadge player={player} current={current} />
-      <div className="opponent-hand">
-        {Array.from({ length: Math.min(5, Math.max(0, player.cardsRemaining || 5)) }).map((_, index) => (
-          <div key={index} className="card-back" style={{ "--tilt": `${(index - 2) * 5}deg` } as CSSProperties}>鬥</div>
-        ))}
-      </div>
-      <div className="seat-count">剩餘 {player.cardsRemaining} 張</div>
-    </div>
-  );
-}
-
-function PlayerBadge({ player, current }: { player: TablePlayer; current: boolean }) {
-  return (
-    <div className={`player-badge badge-${player.color} ${current ? "active" : ""}`}>
-      <span className="avatar-letter">{player.nickname.trim().slice(0, 1) || "玩"}</span>
-      <strong>{player.nickname}</strong>
-    </div>
-  );
+  if (player.seat === "self") return null;
+  return <RoomOpponentSeat player={{ id: player.id, nickname: player.nickname, cardsRemaining: player.cardsRemaining, type: player.type, connected: player.connected }} position={player.seat} active={current} />;
 }
 
 function PenaltyAlert({ result, targetPlayerColor, isVisible }: { result: PenaltyResult; targetPlayerColor: string; isVisible: boolean }) {
