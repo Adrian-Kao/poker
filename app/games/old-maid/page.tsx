@@ -1,18 +1,10 @@
 "use client";
 
 import {
-  BookOpen,
   CheckCircle2,
   Clock3,
-  Copy,
   Crown,
-  Ghost,
-  LogOut,
-  Play,
-  ShieldCheck,
-  Users,
-  Wifi,
-  WifiOff
+  Ghost
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "colyseus.js";
@@ -22,7 +14,15 @@ import {
   OldMaidRoomStateSchema,
   type PublicOldMaidPlayer
 } from "../../../server/schema/OldMaidRoomState";
-import { UnifiedWaitingRoom } from "../shared/UnifiedGameRoom";
+import { useBgmMode } from "../../SoundProvider";
+import {
+  RoomHeader,
+  RoomOpponentSeat,
+  RoomSelfBadge,
+  RoomTable,
+  UnifiedWaitingRoom,
+  type RoomSeatPosition
+} from "../room";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type OldMaidPhase =
@@ -253,6 +253,7 @@ export default function OldMaidPage() {
     [roomState, stateVersion]
   );
   const phase = (roomState?.phase ?? "waiting") as OldMaidPhase;
+  useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const ownPlayer = players.find((player) => player.id === ownPlayerId);
   const ownReady = ownPlayer?.ready ?? false;
   const isHost = ownPlayer?.host ?? false;
@@ -330,8 +331,7 @@ export default function OldMaidPage() {
       return;
     }
 
-    if (isHost) send("CLOSE_ROOM");
-    else void room.leave(true);
+    send("CLOSE_ROOM");
 
     window.setTimeout(() => {
       window.location.href = "/";
@@ -358,120 +358,45 @@ export default function OldMaidPage() {
       onLeave={leaveRoom}
     />;
   }
-  if (false) {
-    return (
-      <main className="old-maid-shell">
-        <OldMaidHeader
-          roomCode={roomCode}
-          round={roomState?.round ?? 1}
-          status={status}
-          onLeave={leaveRoom}
-        />
-
-        <section className="old-maid-lobby" aria-labelledby="old-maid-room-title">
-          <div className="old-maid-lobby-heading">
-            <div>
-              <span className="stamp">等待室</span>
-              <h1 id="old-maid-room-title">抽鬼牌房間</h1>
-              <p>湊滿 3 至 6 位真人玩家，全員準備後由房主發牌。</p>
-            </div>
-            <div className="old-maid-room-code">
-              <span>房號</span>
-              <strong>{formatRoom(roomCode)}</strong>
-              <button
-                type="button"
-                onClick={() => navigator.clipboard?.writeText(roomCode)}
-              >
-                <Copy size={19} />
-                複製
-              </button>
-            </div>
-          </div>
-
-          <div className="old-maid-lobby-grid">
-            {players.map((player) => (
-              <LobbyPlayer
-                isSelf={player.id === ownPlayerId}
-                key={player.id}
-                player={player}
-              />
-            ))}
-            {Array.from({
-              length: Math.max(0, (roomState?.maxPlayers ?? 4) - players.length)
-            }).map((_, index) => (
-              <article className="old-maid-lobby-card empty" key={index}>
-                <Users size={30} />
-                <strong>等待玩家</strong>
-                <span>空位</span>
-              </article>
-            ))}
-          </div>
-
-          <div className="old-maid-lobby-actions">
-            <button
-              className={`old-maid-ready-button ${ownReady ? "is-ready" : ""}`}
-              disabled={!canUseRoom}
-              onClick={() => send("SET_READY", { ready: !ownReady })}
-              type="button"
-            >
-              <CheckCircle2 size={22} />
-              {ownReady ? "取消準備" : "我準備好了"}
-            </button>
-            {isHost ? (
-              <button
-                className="old-maid-start-button"
-                disabled={!canStart}
-                onClick={() => send("START_GAME")}
-                type="button"
-              >
-                <Play size={22} />
-                開始遊戲
-              </button>
-            ) : (
-              <p>等待房主開始遊戲。</p>
-            )}
-          </div>
-
-          <p className={`old-maid-connection-note ${status}`}>{statusText}</p>
-        </section>
-
-        <OldMaidStyles />
-      </main>
-    );
-  }
-
   return (
-    <main className="old-maid-shell">
-      <OldMaidHeader
+    <main className="bluff-page-shell old-maid-shell old-maid-shared-shell">
+      <RoomHeader
+        docsHref="/docs/games/old-maid.md"
+        gameName="抽鬼牌"
+        realOnly
         roomCode={roomCode}
         round={roomState?.round ?? 1}
         status={status}
         onLeave={leaveRoom}
       />
 
-      <section className="old-maid-table" aria-label="抽鬼牌牌桌">
-        <div className="old-maid-opponents">
-          {opponents.map((player) => (
-            <OpponentPlayer
-              cardsRemaining={
-                phase === "dealing"
-                  ? dealCounts[player.id] ?? 0
-                  : phase === "shuffling"
-                    ? 0
-                    : player.cardsRemaining
-              }
-              isCurrent={player.id === roomState?.currentPlayerId}
-              isTarget={player.id === roomState?.targetPlayerId}
+      <RoomTable gameName="抽鬼牌" className={`old-maid-shared-table phase-${phase}`}>
+        {opponents.map((player, index) => {
+          const cardsRemaining = phase === "dealing"
+            ? dealCounts[player.id] ?? 0
+            : phase === "shuffling"
+              ? 0
+              : player.cardsRemaining;
+          return (
+            <RoomOpponentSeat
+              active={player.id === roomState?.currentPlayerId}
               key={player.id}
-              player={player}
+              player={{
+                id: player.id,
+                nickname: player.nickname,
+                connected: player.connected,
+                cardsRemaining,
+                status: player.status === "playing" ? "playing" : "finished",
+                type: "human"
+              }}
+              position={oldMaidOpponentPositions(opponents.length)[index]}
             />
-          ))}
-        </div>
+          );
+        })}
 
         {isOpening ? (
           <OpeningStage
             dealtCardCount={dealtCardCount}
-            dealCounts={dealCounts}
             dealerPlayerId={roomState?.dealerPlayerId ?? ""}
             phase={phase}
             phaseProgress={phaseProgress}
@@ -547,14 +472,11 @@ export default function OldMaidPage() {
         )}
 
         <section className="old-maid-self-area" aria-label="自己的手牌">
-          <div className={`old-maid-self-badge ${isMyTurn ? "active" : ""}`}>
-            <span>{(nickname || "你").slice(0, 1)}</span>
-            <div>
-              <small>你的手牌</small>
-              <strong>{nickname}</strong>
-            </div>
-            <b>{ownVisibleCardCount} 張</b>
-          </div>
+          <RoomSelfBadge
+            active={isMyTurn}
+            count={ownVisibleCardCount}
+            nickname={nickname}
+          />
 
           {["shuffling", "dealing"].includes(phase) ? (
             <div className="old-maid-deal-progress">
@@ -579,7 +501,7 @@ export default function OldMaidPage() {
             </div>
           )}
         </section>
-      </section>
+      </RoomTable>
 
       {phase === "ready" ? (
         <section
@@ -623,88 +545,14 @@ export default function OldMaidPage() {
   );
 }
 
-function OldMaidHeader({
-  roomCode,
-  round,
-  status,
-  onLeave
-}: {
-  roomCode: string;
-  round: number;
-  status: ConnectionStatus;
-  onLeave: () => void;
-}) {
-  return (
-    <header className="old-maid-header">
-      <a className="old-maid-brand" href="/" aria-label="返回鬥陣來一局首頁">
-        <span>鬥陣</span>
-        <strong>抽鬼牌</strong>
-      </a>
-      <div className="old-maid-header-meta">
-        <span>
-          房號 <strong>{formatRoom(roomCode)}</strong>
-        </span>
-        <span>
-          第 <strong>{round}</strong> 局
-        </span>
-        <span className={`old-maid-status ${status}`}>
-          {status === "connected" ? <Wifi size={18} /> : <WifiOff size={18} />}
-          {connectionLabel(status)}
-        </span>
-        <span>
-          <ShieldCheck size={18} />
-          純娛樂
-        </span>
-      </div>
-      <nav className="old-maid-header-actions" aria-label="牌局操作">
-        <a href="/#games-title">
-          <BookOpen size={20} />
-          遊戲列表
-        </a>
-        <button type="button" onClick={onLeave}>
-          <LogOut size={20} />
-          離開牌局
-        </button>
-      </nav>
-    </header>
-  );
-}
-
-function LobbyPlayer({
-  player,
-  isSelf
-}: {
-  player: PublicOldMaidPlayer;
-  isSelf: boolean;
-}) {
-  return (
-    <article className={`old-maid-lobby-card ${player.ready ? "ready" : ""}`}>
-      <span className="old-maid-lobby-avatar">
-        {player.nickname.slice(0, 1) || "玩"}
-      </span>
-      <span>
-        座位 {player.seat + 1}
-        {player.host ? " · 房主" : ""}
-      </span>
-      <strong>
-        {player.nickname}
-        {isSelf ? "（你）" : ""}
-      </strong>
-      <b>{player.ready ? "已準備" : "未準備"}</b>
-    </article>
-  );
-}
-
 function OpeningStage({
   dealtCardCount,
-  dealCounts,
   dealerPlayerId,
   phase,
   phaseProgress,
   players
 }: {
   dealtCardCount: number;
-  dealCounts: Record<string, number>;
   dealerPlayerId: string;
   phase: OldMaidPhase;
   phaseProgress: number;
@@ -753,20 +601,6 @@ function OpeningStage({
 
       {phase === "shuffling" || phase === "dealing" ? (
         <div className="old-maid-opening-board">
-          <div className="old-maid-opening-targets">
-            {players.map((player, index) => (
-              <div
-                className={index === activePlayerIndex ? "active" : ""}
-                key={player.id}
-              >
-                <span className="old-maid-avatar blue">
-                  {player.nickname.slice(0, 1) || "玩"}
-                </span>
-                <strong>{player.nickname}</strong>
-                <b>{dealCounts[player.id] ?? 0} 張</b>
-              </div>
-            ))}
-          </div>
           <div className="old-maid-opening-deck" aria-label="中央牌堆">
             <CardBack index={0} />
             <CardBack index={1} />
@@ -791,41 +625,6 @@ function OpeningStage({
         <i style={{ width: `${Math.round(phaseProgress * 100)}%` }} />
       </span>
     </section>
-  );
-}
-
-function OpponentPlayer({
-  player,
-  isCurrent,
-  isTarget,
-  cardsRemaining
-}: {
-  player: PublicOldMaidPlayer;
-  isCurrent: boolean;
-  isTarget: boolean;
-  cardsRemaining?: number;
-}) {
-  const visibleCardsRemaining = cardsRemaining ?? player.cardsRemaining;
-  return (
-    <article
-      className={`old-maid-opponent ${isCurrent ? "current" : ""} ${isTarget ? "target" : ""} ${player.status !== "playing" ? "safe" : ""}`}
-    >
-      <span className="old-maid-avatar blue">
-        {player.nickname.slice(0, 1) || "玩"}
-      </span>
-      <div>
-        <strong>{player.nickname}</strong>
-        <span>{player.connected ? statusLabel(player.status) : "已離線"}</span>
-      </div>
-      <div className="old-maid-mini-cards" aria-label={`${visibleCardsRemaining} 張牌`}>
-        {Array.from({
-          length: Math.min(6, Math.max(0, visibleCardsRemaining))
-        }).map((_, index) => (
-          <i key={index} />
-        ))}
-      </div>
-      <b>{visibleCardsRemaining} 張</b>
-    </article>
   );
 }
 
@@ -899,22 +698,12 @@ function playerName(players: PublicOldMaidPlayer[], playerId: string) {
   return players.find((player) => player.id === playerId)?.nickname || "玩家";
 }
 
-function statusLabel(status: string) {
-  if (status === "safe") return "安全出局";
-  if (status === "loser") return "鬼牌在手";
-  return "遊戲中";
-}
-
-function connectionLabel(status: ConnectionStatus) {
-  if (status === "connected") return "已連線";
-  if (status === "error") return "連線失敗";
-  if (status === "closed") return "已離線";
-  return "連線中";
-}
-
-function formatRoom(value: string) {
-  const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-");
-  return `${clean.slice(0, 3)} ${clean.slice(3)}`;
+function oldMaidOpponentPositions(count: number): RoomSeatPosition[] {
+  if (count <= 1) return ["top"];
+  if (count === 2) return ["left", "right"];
+  if (count === 3) return ["top", "left", "right"];
+  if (count === 4) return ["upper-left", "upper-right", "left", "right"];
+  return ["top", "upper-left", "upper-right", "left", "right"];
 }
 
 function getTabClientId(scope: string) {
@@ -2011,6 +1800,91 @@ function OldMaidStyles() {
 
         .old-maid-hand {
           justify-content: flex-start;
+        }
+      }
+
+      .old-maid-shared-shell {
+        width: 100%;
+        max-width: none;
+        padding: 20px clamp(14px, 3vw, 42px) 42px;
+      }
+
+      .old-maid-shared-table {
+        min-height: clamp(820px, 78vh, 940px);
+      }
+
+      .old-maid-shared-table .old-maid-opening-stage,
+      .old-maid-shared-table .old-maid-draw-stage {
+        width: min(720px, calc(100% - 560px));
+      }
+
+      .old-maid-shared-table .old-maid-self-area {
+        z-index: 5;
+        right: 40px;
+        bottom: 18px;
+        left: 40px;
+      }
+
+      .old-maid-shared-table .room-self-badge {
+        position: relative;
+        z-index: 2;
+      }
+
+      .old-maid-shared-table .old-maid-hand {
+        width: min(1120px, 100%);
+      }
+
+      @media (max-width: 1100px) {
+        .old-maid-shared-table .old-maid-opening-stage,
+        .old-maid-shared-table .old-maid-draw-stage {
+          top: 49%;
+          width: calc(100% - 60px);
+        }
+
+        .old-maid-shared-table .room-opponent-seat.upper-left,
+        .old-maid-shared-table .room-opponent-seat.upper-right {
+          top: 92px;
+          display: grid;
+          scale: 0.7;
+        }
+
+        .old-maid-shared-table .room-opponent-seat.upper-left {
+          left: -32px;
+        }
+
+        .old-maid-shared-table .room-opponent-seat.upper-right {
+          right: -32px;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .old-maid-shared-table {
+          min-height: 790px;
+        }
+
+        .old-maid-shared-table .old-maid-opening-stage,
+        .old-maid-shared-table .old-maid-draw-stage {
+          top: 48%;
+          width: calc(100% - 18px);
+        }
+
+        .old-maid-shared-table .room-opponent-seat.upper-left,
+        .old-maid-shared-table .room-opponent-seat.upper-right {
+          top: 80px;
+          scale: 0.54;
+        }
+
+        .old-maid-shared-table .room-opponent-seat.upper-left {
+          left: -68px;
+        }
+
+        .old-maid-shared-table .room-opponent-seat.upper-right {
+          right: -68px;
+        }
+
+        .old-maid-shared-table .old-maid-self-area {
+          right: 8px;
+          left: 8px;
         }
       }
 

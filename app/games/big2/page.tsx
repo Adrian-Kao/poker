@@ -24,6 +24,7 @@ export default function BigTwoPage() {
   const [stateVersion, setStateVersion] = useState(0);
   const [hand, setHand] = useState<Card[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   const roomRef = useRef<Room<BigTwoRoomStateSchema> | null>(null);
 
   useEffect(() => {
@@ -54,7 +55,10 @@ export default function BigTwoPage() {
         setStateVersion((value) => value + 1);
         room.onStateChange((next) => { setState(next); setRoomCode(next.roomCode || room.roomId.slice(0, 6)); setStateVersion((value) => value + 1); });
         room.onMessage<BigTwoServerEvent>("big-two:event", (event) => {
-          if (event.type === "PRIVATE_HAND") { setHand(sortBigTwoCards(event.cards)); setSelectedIds((current) => current.filter((id) => event.cards.some((card) => card.id === id))); }
+          if (event.type === "PRIVATE_HAND") {
+            setHand((current) => preserveHandOrder(current, event.cards));
+            setSelectedIds((current) => current.filter((id) => event.cards.some((card) => card.id === id)));
+          }
           if (event.type === "ACTION_REJECTED") setStatusText(errorLabel(event.reason));
           if (event.type === "ROOM_CLOSED") window.location.href = "/";
         });
@@ -87,6 +91,19 @@ export default function BigTwoPage() {
   function send(type: string, extra: Record<string, unknown> = {}) { roomRef.current?.send(type, { type, actionId: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, ...extra }); }
   function leaveRoom() { if (!roomRef.current) { window.location.href = "/"; return; } send("CLOSE_ROOM"); window.setTimeout(() => { window.location.href = "/"; }, 150); }
   function toggleCard(id: string) { if (!isMyTurn) return; setSelectedIds((current) => current.includes(id) ? current.filter((value) => value !== id) : current.length < 5 ? [...current, id] : current); }
+  function reorderByDrop(targetCardId: string) {
+    if (!draggedCardId || draggedCardId === targetCardId) return;
+    setHand((current) => {
+      const from = current.findIndex((card) => card.id === draggedCardId);
+      const to = current.findIndex((card) => card.id === targetCardId);
+      if (from < 0 || to < 0) return current;
+      const next = [...current];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setDraggedCardId(null);
+  }
   function play() { if (!canPlay) return; send("PLAY_CARDS", { cardIds: selectedIds }); }
   function pass() { if (!canPass) return; send("PASS"); setSelectedIds([]); }
 
@@ -105,7 +122,7 @@ export default function BigTwoPage() {
         </div>
         <section className="bluff-self-zone big-two-self-zone" aria-label="自己的手牌">
           <RoomSelfBadge nickname={nickname} active={isMyTurn} count={hand.length} />
-          <div className="big-two-hand">{hand.map((card) => <button type="button" key={card.id} className={`big-two-card-button ${selectedIds.includes(card.id) ? "selected" : ""}`} onClick={() => toggleCard(card.id)} aria-pressed={selectedIds.includes(card.id)} aria-label={`${card.rank}${suitMarks[card.suit]}${selectedIds.includes(card.id) ? "，已選取" : ""}`}><BigTwoCard card={card} /></button>)}</div>
+          <div className="big-two-hand">{hand.map((card) => <button type="button" key={card.id} className={`big-two-card-button ${selectedIds.includes(card.id) ? "selected" : ""} ${draggedCardId === card.id ? "dragging" : ""}`} draggable onClick={() => toggleCard(card.id)} onDragStart={() => setDraggedCardId(card.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorderByDrop(card.id)} onDragEnd={() => setDraggedCardId(null)} aria-pressed={selectedIds.includes(card.id)} aria-label={`${card.rank}${suitMarks[card.suit]}${selectedIds.includes(card.id) ? "，已選取" : ""}`}><BigTwoCard card={card} /></button>)}</div>
         </section>
       </RoomTable>
       <section className="bluff-bottom-controls big-two-shared-controls">
@@ -119,6 +136,17 @@ export default function BigTwoPage() {
 }
 
 function BigTwoCard({ card, compact = false }: { card: Card; compact?: boolean }) { const red = card.suit === "diamonds" || card.suit === "hearts"; return <span className={`big-two-card card-face ${compact ? "compact" : ""} ${red ? "red" : "black"}`}><span>{card.rank}</span><em>{suitMarks[card.suit]}</em>{!compact ? <strong>{card.rank}</strong> : null}</span>; }
+function preserveHandOrder(current: Card[], incoming: Card[]) {
+  if (current.length === 0) return sortBigTwoCards(incoming);
+  const incomingById = new Map(incoming.map((card) => [card.id, card]));
+  const retained = current.flatMap((card) => {
+    const updated = incomingById.get(card.id);
+    if (!updated) return [];
+    incomingById.delete(card.id);
+    return [updated];
+  });
+  return [...retained, ...sortBigTwoCards([...incomingById.values()])];
+}
 function toCard(card: { id: string; rank: string; suit: string }): Card { return { id: card.id, rank: card.rank as Card["rank"], suit: card.suit as Card["suit"] }; }
 function mapOpponents(players: PublicBigTwoPlayer[], ownId: string) { const others = players.filter((player) => player.id !== ownId); const positions: RoomSeatPosition[] = players.length === 3 ? ["left", "right"] : ["top", "left", "right"]; return others.map((player, index) => ({ id: player.id, nickname: player.nickname, type: player.type, connected: player.connected, cardsRemaining: player.cardsRemaining, status: player.status, passed: player.passed, position: positions[index] ?? "top" })); }
 function combinationLabel(value: string) { return ({ single: "單張", pair: "對子", straight: "順子", "full-house": "葫蘆", "four-of-a-kind": "鐵支", "straight-flush": "同花順" } as Record<string, string>)[value] ?? value; }

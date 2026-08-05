@@ -137,23 +137,23 @@ export function submitBluffReaction(
   if (state.reactions.some((reaction) => reaction.actionId === actionId || reaction.playerId === playerId)) return state;
 
   const reactions = [...state.reactions, { playerId, choice, actionId, receivedAt: timestamp }];
-  if (choice === "challenge") return resolveBluffChallenge({ ...state, reactions, reviewerId: playerId }, playerId, timestamp);
+  if (choice === "challenge") return resolveBluffChallenge({ ...state, reactions, reviewerId: playerId }, playerId);
 
   const reviewers = getActivePlayers(state).filter((player) => player.id !== batch.playerId);
   if (reviewers.every((player) => reactions.some((reaction) => reaction.playerId === player.id && reaction.choice === "trust"))) {
-    return resolveAllTrust({ ...state, reactions }, timestamp);
+    return resolveAllTrust({ ...state, reactions });
   }
 
   return { ...state, reactions };
 }
 
-export function resolveAllTrust(state: BluffState, timestamp = Date.now()): BluffState {
+export function resolveAllTrust(state: BluffState, _timestamp = Date.now()): BluffState {
   const batch = state.batches.at(-1);
   if (!batch) return state;
-  return advanceAfterCleanRound({ ...state, phase: "playing", reactions: [], reactionDeadline: null, reactionStartedAt: null }, batch.playerId, timestamp);
+  return advanceAfterCleanRound({ ...state, phase: "playing", reactions: [], reactionDeadline: null, reactionStartedAt: null }, batch.playerId);
 }
 
-export function resolveBluffChallenge(state: BluffState, challengerId: string, timestamp = Date.now()): BluffState {
+export function resolveBluffChallenge(state: BluffState, challengerId: string): BluffState {
   const batch = state.batches.at(-1);
   if (!batch) throw new Error("No claim to challenge.");
   const revealedCards = state.centerPile.filter((played) => played.batchId === batch.id).map((played) => played.card);
@@ -188,14 +188,14 @@ export function resolveBluffChallenge(state: BluffState, challengerId: string, t
   });
 }
 
-export function resolveRoundResult(state: BluffState, timestamp = Date.now()): BluffState {
+export function resolveRoundResult(state: BluffState, _timestamp = Date.now()): BluffState {
   if (state.phase !== "round-result") return state;
-  return startRoundAt({ ...state, phase: "playing", roundResult: null }, state.currentPlayerId, timestamp);
+  return startRoundAt({ ...state, phase: "playing", roundResult: null }, state.currentPlayerId);
 }
 
-export function expireReactionWindow(state: BluffState, timestamp = Date.now()): BluffState {
+export function expireReactionWindow(state: BluffState, _timestamp = Date.now()): BluffState {
   if (state.phase !== "reaction-window") return state;
-  return resolveAllTrust(state, timestamp);
+  return resolveAllTrust(state);
 }
 
 export function discardFourOfKind(state: BluffState, playerId: string, cardIds: [string, string, string, string], representedRank: BluffRank): BluffState {
@@ -231,7 +231,7 @@ export function getBluffWinner(state: BluffState) {
   return state.winnerId;
 }
 
-function advanceAfterCleanRound(state: BluffState, fromPlayerId: string | null, timestamp: number): BluffState {
+function advanceAfterCleanRound(state: BluffState, fromPlayerId: string | null): BluffState {
   if (!fromPlayerId) return finishIfNeeded(state);
   let nextState = state;
   let candidateId = getNextBluffPlayerId(nextState, fromPlayerId);
@@ -253,21 +253,21 @@ function advanceAfterCleanRound(state: BluffState, fromPlayerId: string | null, 
   return finishIfNeeded(nextState);
 }
 
-function startRoundAt(state: BluffState, playerId: string | null, timestamp: number): BluffState {
+function startRoundAt(state: BluffState, playerId: string | null): BluffState {
   if (!playerId) return finishIfNeeded(state);
   const player = state.players.find((item) => item.id === playerId);
 
   if (player?.status === "pendingFinish") {
     const rankedState = markWinner(state, playerId);
     if (rankedState.phase === "finished") return rankedState;
-    return advanceAfterCleanRound(rankedState, playerId, timestamp);
+    return advanceAfterCleanRound(rankedState, playerId);
   }
 
   if (player?.status === "playing") {
     return { ...state, phase: "playing", currentPlayerId: playerId, turnNumber: state.turnNumber + 1 };
   }
 
-  return advanceAfterCleanRound(state, playerId, timestamp);
+  return advanceAfterCleanRound(state, playerId);
 }
 
 function markWinner(state: BluffState, playerId: string): BluffState {

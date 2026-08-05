@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Bot, CheckCircle2, Clock3, Crown, LogOut, Play, Users } from "lucide-react";
+import { Clock3, Play } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "colyseus.js";
 import type { Card, Rank, Suit } from "../../../lib/games/core/cards";
@@ -8,7 +8,7 @@ import type { PickRedPointsPhase } from "../../../lib/games/pick-red-points";
 import { PickRedPointsRoomStateSchema, type PublicPickRedPlayer } from "../../../server/schema/PickRedPointsRoomState";
 import type { PickRedPointsServerEvent } from "../../../server/messages/pickRedPointsMessages";
 import { useBgmMode } from "../../SoundProvider";
-import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, type UnifiedPlayer } from "../room";
+import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom } from "../room";
 
 const serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
 const marks: Record<Suit, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
@@ -135,17 +135,10 @@ export default function RedDotPage() {
   );
 }
 
-function WaitingRoom({ state, players, ownId, isHost, roomCode, status, message, onSend, onLeave }: { state: PickRedPointsRoomStateSchema | null; players: PublicPickRedPlayer[]; ownId: string; isHost: boolean; roomCode: string; status: string; message: string; onSend: (type: string, data?: Record<string, unknown>) => void; onLeave: () => void }) {
-  const ownReady = players.find((player) => player.id === ownId)?.ready ?? false;
-  const emptySeats = Math.max(0, (state?.maxPlayers ?? 4) - players.length);
-  return <main className="heart-auto-shell ninety-online-shell"><RedDotHeader roomCode={roomCode} round={state?.round ?? 1} onLeave={onLeave} /><section className="heart-waiting-room ninety-waiting-room"><div className="waiting-room-title"><span className="stamp">等待室</span><h1>撿紅點 房間</h1></div><div className="waiting-room-code"><span>{formatRoom(roomCode)}</span><button type="button" onClick={() => navigator.clipboard?.writeText(roomCode)}>複製房號</button></div><div className="heart-lobby-list ninety-lobby-list">{players.map((player) => <article className={`heart-lobby-seat ${player.ready ? "ready" : ""}`} key={player.id}><span className="lobby-card-corner">{player.nickname.slice(0, 1)}</span><span>座位 {player.seat + 1}{player.host ? " · 房主" : ""}</span><strong>{player.nickname}{player.id === ownId ? "（你）" : ""}</strong><em>{player.type === "bot" ? "電腦玩家" : "真人玩家"}</em><b>{player.ready ? "已準備" : "未準備"}</b></article>)}{Array.from({ length: emptySeats }).map((_, index) => <article className="heart-lobby-seat lobby-empty-seat" key={`empty-${index}`} aria-label={`座位 ${players.length + index + 1} 等待玩家`}><span className="empty-seat-icon" aria-hidden="true">♙</span><strong>等待玩家</strong><em>空位</em></article>)}</div><div className="heart-lobby-actions"><button className={`ready-button ${ownReady ? "is-ready" : ""}`} type="button" onClick={() => onSend("SET_READY", { ready: !ownReady })}><CheckCircle2 size={22} />{ownReady ? "取消準備" : "我準備好了"}</button>{isHost && <><button className="ready-button bot-button" type="button" onClick={() => onSend("ADD_BOT", { difficulty: "普通" })} disabled={players.length >= (state?.maxPlayers ?? 4)}><Bot size={22} />加電腦補位</button><button className="play-card-button compact-action" type="button" onClick={() => onSend("START_GAME")} disabled={players.length < 2 || !players.every((player) => player.ready)}><Play size={20} />開始遊戲</button></>}</div><p className={`connection-note ${status}`}>{message}</p></section></main>;
-}
-
 function RedDotHeader({ roomCode, round, onLeave }: { roomCode: string; round: number; onLeave: () => void }) { return <RoomHeader gameName="撿紅點" roomCode={roomCode} round={round} status="connected" docsHref="/docs/games/pick-red-points.md" onLeave={onLeave} />; }
 function OpponentCard({ player, position, current }: { player?: PublicPickRedPlayer; position: "top" | "left" | "right"; current: boolean }) {
   if (!player) return null;
   return <RoomOpponentSeat player={{ id: player.id, nickname: player.nickname, cardsRemaining: player.cardsRemaining, type: player.type, connected: player.connected }} position={position} active={current} />;
 }
 function cardContent(rank: Rank, suit: Suit) { return <><span>{rank}</span><em>{marks[suit]}</em></>; }
-function formatRoom(value: string) { const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-"); return `${clean.slice(0, 3)} ${clean.slice(3)}`; }
 function getTabClientId(game: string) { const key = `poker:${game}:client-id`; const existing = window.sessionStorage.getItem(key); if (existing) return existing; const id = `${game}-${crypto.randomUUID()}`; window.sessionStorage.setItem(key, id); return id; }

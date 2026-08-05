@@ -3,7 +3,6 @@ import {
   RESULT_NOTICE_MS,
   RECONNECT_WINDOW_SECONDS,
   advanceAutoPlay,
-  calculateBotReaction,
   createHeartAttackGame,
   resolveRoundResult,
   resolveSlapWindow,
@@ -43,7 +42,6 @@ export class HeartAttackRoomController {
   private gameState: HeartAttackState | null = null;
   private autoTask: ScheduledTask | null = null;
   private slapResolutionTask: ScheduledTask | null = null;
-  private botTasks: ScheduledTask[] = [];
   private actionIds = new Set<string>();
   private botCounter = 1;
 
@@ -280,28 +278,6 @@ export class HeartAttackRoomController {
     }
   }
 
-  private scheduleBotSlaps(triggerAt: number) {
-    this.clearBotTimers();
-    if (!this.gameState) return;
-    const latest = this.gameState.centerPile.at(-1);
-    if (!latest) return;
-
-    this.gameState.players
-      .filter((player) => player.type === "bot")
-      .forEach((bot) => {
-        const reaction = calculateBotReaction(bot.botDifficulty ?? "normal", this.random, true);
-        if (reaction === null) return;
-        const actionId = `bot-${bot.id}-${this.gameState?.turnNumber ?? 0}-${reaction}`;
-        const task = this.scheduler.setTimeout(() => {
-          if (!this.gameState || this.gameState.phase !== "slap-window") return;
-          this.requireFreshAction(actionId);
-          this.gameState = submitSlap(this.gameState, bot.id, triggerAt + reaction);
-          this.syncPublic();
-        }, reaction);
-        this.botTasks.push(task);
-      });
-  }
-
   private emitRoundResultIfNeeded(before: HeartAttackState) {
     if (!this.gameState || before.phase === this.gameState.phase || this.gameState.phase !== "round-result") return;
     if (this.gameState.roundResult) this.emit({ type: "ROUND_RESULT", result: this.gameState.roundResult });
@@ -350,12 +326,6 @@ export class HeartAttackRoomController {
     this.scheduler.clear(this.slapResolutionTask);
     this.autoTask = null;
     this.slapResolutionTask = null;
-    this.clearBotTimers();
-  }
-
-  private clearBotTimers() {
-    this.botTasks.forEach((task) => this.scheduler.clear(task));
-    this.botTasks = [];
   }
 }
 

@@ -56,7 +56,7 @@ export class BluffRoomController {
     this.onGameStarted = options.onGameStarted ?? (() => undefined);
     this.publicState.roomCode = options.roomCode ?? createRoomCode(this.random);
     this.publicState.maxPlayers = clampMaxPlayers(options.maxPlayers ?? 4);
-    this.initialBotCount = Math.max(0, Math.floor(options.initialBotCount ?? 0));
+    this.initialBotCount = 0;
     this.botDifficulty = options.botDifficulty ?? "normal";
     this.syncPublic();
   }
@@ -132,10 +132,8 @@ export class BluffRoomController {
   addBot(sessionId: string, actionId: string, difficulty: BotDifficulty) {
     this.requireFreshAction(actionId);
     this.requireHost(sessionId);
-    if (this.gameState) throw new Error("Cannot add bot after start.");
-    if (this.lobbyPlayers.length >= this.publicState.maxPlayers) throw new Error("Room is full.");
-    this.addBotInternal(difficulty);
-    this.syncPublic();
+    void difficulty;
+    throw new Error("Bluff is real players only.");
   }
 
   removeBot(sessionId: string, actionId: string, botId: string) {

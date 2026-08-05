@@ -101,7 +101,7 @@ export function RoomSelfBadge({ nickname, active = false, count }: { nickname: s
 export type UnifiedConnectionStatus = RoomConnectionStatus;
 export type UnifiedPlayer = RoomPlayer;
 
-export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, statusText, players, maxPlayers, ownId, isHost, canUseRoom, canStart, allowBots = false, realOnly = false, minPlayers = 2, docsHref, onReady, onAddBot, onStart, onLeave }: { gameName: string; roomCode: string; round?: number; status: RoomConnectionStatus; statusText: string; players: RoomPlayer[]; maxPlayers: number; ownId: string; isHost: boolean; canUseRoom: boolean; canStart: boolean; allowBots?: boolean; realOnly?: boolean; minPlayers?: number; docsHref?: string; onReady: () => void; onAddBot?: () => void; onStart: () => void; onLeave: () => void }) {
+export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, statusText, players, maxPlayers, ownId, isHost, canUseRoom, canStart, allowBots = false, realOnly = false, minPlayers = 2, docsHref, settings, onReady, onAddBot, onStart, onLeave }: { gameName: string; roomCode: string; round?: number; status: RoomConnectionStatus; statusText: string; players: RoomPlayer[]; maxPlayers: number; ownId: string; isHost: boolean; canUseRoom: boolean; canStart: boolean; allowBots?: boolean; realOnly?: boolean; minPlayers?: number; docsHref?: string; settings?: ReactNode; onReady: () => void; onAddBot?: () => void; onStart: () => void; onLeave: () => void }) {
   const ownReady = players.find((player) => player.id === ownId)?.ready ?? false;
   const emptySeats = Math.max(0, maxPlayers - players.length);
   return (
@@ -110,6 +110,7 @@ export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, stat
       <section className="heart-waiting-room ninety-waiting-room unified-waiting-room">
         <div className="waiting-room-title"><span className="stamp">等待室</span><h1>{gameName} 房間</h1></div>
         <div className="waiting-room-code"><span>{formatRoom(roomCode)}</span><button type="button" onClick={() => navigator.clipboard?.writeText(roomCode)}><Copy size={18} />複製房號</button></div>
+        {settings ? <div className="room-waiting-settings">{settings}</div> : null}
         <div className="heart-lobby-list ninety-lobby-list">{players.map((player) => <WaitingSeat key={player.id} player={player} isSelf={player.id === ownId} />)}{Array.from({ length: emptySeats }).map((_, index) => <EmptyWaitingSeat key={`empty-${index}`} seatNumber={players.length + index + 1} />)}</div>
         <div className="heart-lobby-actions">
           <button type="button" className={`ready-button ${ownReady ? "is-ready" : ""}`} onClick={onReady} disabled={!canUseRoom}><CheckCircle2 size={22} />{ownReady ? "取消準備" : "我準備好了"}</button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, CheckCircle2, Clock3, GripHorizontal, Hand, LogOut, Play, RotateCcw, ShieldCheck, SkipForward, Sparkles, Users } from "lucide-react";
+import { Clock3, GripHorizontal, Hand, LogOut, Play, RotateCcw, ShieldCheck, SkipForward, Sparkles, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getGame, type GameId } from "../data/games";
 import { UnifiedWaitingRoom, type UnifiedPlayer } from "./shared/UnifiedGameRoom";
@@ -165,72 +165,6 @@ function SharedStaticWaitingRoom({ game, roomCode, nickname }: { game: NonNullab
     onStart={() => undefined}
     onLeave={() => { window.location.href = "/"; }}
   />;
-}
-
-function StaticWaitingRoom({ game, roomCode, nickname }: { game: NonNullable<ReturnType<typeof getGame>>; roomCode: string; nickname: string }) {
-  const [ready, setReady] = useState(false);
-  const emptySeatCount = Math.max(0, game.max - 1);
-
-  return (
-    <main className="heart-auto-shell ninety-online-shell">
-      <GameHeader gameName={game.name} roomCode={roomCode} round={1} />
-      <section className="heart-waiting-room ninety-waiting-room">
-        <div className="waiting-room-title">
-          <span className="stamp">等待室</span>
-          <h1>{game.name} 房間</h1>
-        </div>
-        <div className="waiting-room-code">
-          <span>{formatRoom(roomCode)}</span>
-          <button type="button" onClick={() => navigator.clipboard?.writeText(roomCode)}>複製房號</button>
-        </div>
-        <div className="heart-lobby-list ninety-lobby-list">
-          <article className={`heart-lobby-seat lobby-yellow ${ready ? "ready" : ""}`}>
-            <span className="lobby-card-corner">{(nickname || "玩").slice(0, 1)}</span>
-            <span>座位 1 · 房主</span>
-            <strong>{nickname || "阿德"}（你）</strong>
-            <em>真人玩家</em>
-            <b>{ready ? "已準備" : "未準備"}</b>
-          </article>
-          {Array.from({ length: emptySeatCount }).map((_, index) => (
-            <LobbyEmptySeat key={`empty-${index}`} seatNumber={index + 2} />
-          ))}
-        </div>
-        <div className="heart-lobby-actions">
-          <button type="button" className={`ready-button ${ready ? "is-ready" : ""}`} onClick={() => setReady((value) => !value)}>
-            <CheckCircle2 size={22} />
-            {ready ? "取消準備" : "我準備好了"}
-          </button>
-          {game.bots ? (
-            <button type="button" className="ready-button bot-button" disabled>
-              <Bot size={22} />
-              加電腦補位
-            </button>
-          ) : null}
-          <button type="button" className="play-card-button compact-action" disabled>
-            <Play size={20} />
-            開始遊戲
-          </button>
-        </div>
-        <p className="waiting-room-hint">{game.name}支援 {game.players}，電腦補位會自動顯示已準備；全員準備後由房主開始。</p>
-        <p className="connection-note connected">已加入{game.name}等待室，請切換準備狀態。</p>
-      </section>
-    </main>
-  );
-}
-
-function LobbyEmptySeat({ seatNumber }: { seatNumber: number }) {
-  return (
-    <article className="heart-lobby-seat lobby-empty-seat" aria-label={`座位 ${seatNumber} 等待玩家`}>
-      <span className="empty-seat-icon" aria-hidden="true">♙</span>
-      <strong>等待玩家</strong>
-      <em>空位</em>
-    </article>
-  );
-}
-
-function formatRoom(value: string) {
-  const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-");
-  return `${clean.slice(0, 3)} ${clean.slice(3)}`;
 }
 
 function HeartAttackTable({ roomCode, nickname }: { roomCode: string; nickname: string }) {

@@ -211,7 +211,7 @@ export class OldMaidRoomController {
 
   requestClose(sessionId: string, actionId: string) {
     this.requireFreshAction(actionId);
-    this.requireHost(sessionId);
+    this.requireHuman(sessionId);
     this.cancelOpening();
     this.cancelTurn();
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Bot, CheckCircle2, Clock3, Crown, LogOut, Play, RotateCcw, ShieldCheck, SkipForward, Wifi, WifiOff, X } from "lucide-react";
+import { Clock3, Crown, Play, RotateCcw, SkipForward, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "colyseus.js";
 import type { Card, Suit } from "../../../lib/games/core/cards";
@@ -8,7 +8,7 @@ import type { LegalNinetyNineAction, NinetyNinePhase, NinetyNinePlayChoice } fro
 import { NinetyNineRoomStateSchema, type PublicNinetyNinePlayer } from "../../../server/schema/NinetyNineRoomState";
 import type { NinetyNineServerEvent } from "../../../server/messages/ninetyNineMessages";
 import { useBgmMode } from "../../SoundProvider";
-import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, type UnifiedPlayer } from "../room";
+import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom } from "../room";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type Seat = "self" | "top" | "left" | "right" | "upperLeft" | "upperRight";
@@ -16,12 +16,6 @@ type Seat = "self" | "top" | "left" | "right" | "upperLeft" | "upperRight";
 const gameServerUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
 const seatOrder: Seat[] = ["self", "top", "left", "right", "upperLeft", "upperRight"];
 const suitMarks: Record<Suit, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
-const difficultyLabels = [
-  { label: "簡單", value: "easy" },
-  { label: "普通", value: "normal" },
-  { label: "困難", value: "hard" }
-] as const;
-
 export default function NinetyNinePage() {
   const [roomCode, setRoomCode] = useState("------");
   const [nickname, setNickname] = useState("玩家");
@@ -144,7 +138,6 @@ export default function NinetyNinePage() {
   }, [dealAnimation.active, dealAnimation.visible, hand.length]);
 
   const rawPlayers = useMemo(() => Array.from(roomState?.players ?? []), [roomState, stateVersion]);
-  const emptySeatCount = Math.max(0, (roomState?.maxPlayers ?? 4) - rawPlayers.length);
   const ownReady = rawPlayers.find((player) => player.id === ownPlayerId)?.ready ?? false;
   const ownPlayer = rawPlayers.find((player) => player.id === ownPlayerId);
   const isHost = ownPlayer?.host ?? false;
@@ -216,52 +209,6 @@ export default function NinetyNinePage() {
       onLeave={leaveAndCloseRoom}
     />;
   }
-  if (false) {
-    return (
-      <main className="heart-auto-shell ninety-online-shell">
-        <NinetyHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
-        <section className="heart-waiting-room ninety-waiting-room">
-          <div className="waiting-room-title">
-            <span className="stamp">等待室</span>
-            <h1>九九 房間</h1>
-          </div>
-          <div className="waiting-room-code">
-            <span>{formatRoom(roomCode)}</span>
-            <button type="button" onClick={() => navigator.clipboard?.writeText(roomCode)}>複製房號</button>
-          </div>
-          <div className="heart-lobby-list ninety-lobby-list">
-            {rawPlayers.map((player) => (
-              <LobbySeat key={player.id} player={player} isSelf={player.id === ownPlayerId} />
-            ))}
-            {Array.from({ length: emptySeatCount }).map((_, index) => (
-              <LobbyEmptySeat key={`empty-${index}`} seatNumber={rawPlayers.length + index + 1} />
-            ))}
-          </div>
-          <div className="heart-lobby-actions">
-            <button type="button" className={`ready-button ${ownReady ? "is-ready" : ""}`} onClick={() => send("SET_READY", { ready: !ownReady })} disabled={!canUseRoom}>
-              <CheckCircle2 size={22} />
-              {ownReady ? "取消準備" : "我準備好了"}
-            </button>
-            {isHost ? (
-              <>
-                <button type="button" className="ready-button bot-button" onClick={() => send("ADD_BOT", { difficulty: "normal" })} disabled={!canUseRoom || rawPlayers.length >= (roomState?.maxPlayers ?? 6)}>
-                  <Bot size={22} />
-                  加電腦補位
-                </button>
-                <button type="button" className="play-card-button compact-action" onClick={() => send("START_GAME")} disabled={!canStart}>
-                  <Play size={20} />
-                  開始遊戲
-                </button>
-              </>
-            ) : null}
-          </div>
-          <p className="waiting-room-hint">九九支援 2 至 6 位玩家，電腦補位會自動顯示已準備；全員準備後由房主開始。</p>
-          <p className={`connection-note ${status}`}>{statusText}</p>
-        </section>
-      </main>
-    );
-  }
-
   return (
     <main className="heart-auto-shell ninety-online-shell">
       <NinetyHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
@@ -350,28 +297,6 @@ export default function NinetyNinePage() {
 
 function NinetyHeader({ roomCode, status, onLeave }: { roomCode: string; status: ConnectionStatus; onLeave: () => void }) {
   return <RoomHeader gameName="九九" roomCode={roomCode} status={status} docsHref="/docs/games/ninety-nine.md" onLeave={onLeave} />;
-}
-
-function LobbySeat({ player, isSelf }: { player: PublicNinetyNinePlayer; isSelf: boolean }) {
-  return (
-    <article className={`heart-lobby-seat lobby-${player.seat % 2 === 0 ? "yellow" : "green"} ${player.ready ? "ready" : ""}`}>
-      <span className="lobby-card-corner">{player.nickname.slice(0, 1) || "玩"}</span>
-      <span>座位 {player.seat + 1}{player.host ? " · 房主" : ""}</span>
-      <strong>{player.nickname}{isSelf ? "（你）" : ""}</strong>
-      <em>{player.type === "bot" ? `電腦玩家 ${difficultyName(player.botDifficulty)}` : "真人玩家"}</em>
-      <b>{player.ready ? "已準備" : "未準備"}</b>
-    </article>
-  );
-}
-
-function LobbyEmptySeat({ seatNumber }: { seatNumber: number }) {
-  return (
-    <article className="heart-lobby-seat lobby-empty-seat" aria-label={`座位 ${seatNumber} 等待玩家`}>
-      <span className="empty-seat-icon" aria-hidden="true">♙</span>
-      <strong>等待玩家</strong>
-      <em>空位</em>
-    </article>
-  );
 }
 
 function OpponentSeat({ player, current }: { player: { id: string; nickname: string; seat: Seat; cardsRemaining: number; status: string; type: string; connected: boolean }; current: boolean }) {
@@ -479,15 +404,6 @@ function useCountdown(deadline: number, version: number) {
     return () => window.clearInterval(timer);
   }, [deadline, version]);
   return seconds;
-}
-
-function difficultyName(value: string) {
-  return difficultyLabels.find((item) => item.value === value)?.label ?? "普通";
-}
-
-function formatRoom(value: string) {
-  const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-");
-  return `${clean.slice(0, 3)} ${clean.slice(3)}`;
 }
 
 function getTabClientId(scope: string) {

@@ -32,6 +32,22 @@ test("controller deduplicates reconnects from the same browser tab", () => {
   assert.equal(controller.publicState.players[1]?.nickname, "測試三");
 });
 
+test("any connected player can dissolve the room", () => {
+  const controller = new OldMaidRoomController({
+    roomCode: "123456",
+    random: createSeededRandom(3)
+  });
+
+  controller.addHuman("s1", "房主", "tab-1");
+  controller.addHuman("s2", "朋友", "tab-2");
+
+  assert.doesNotThrow(() => controller.requestClose("s2", "close-by-guest"));
+  assert.throws(
+    () => controller.requestClose("unknown", "close-by-outsider"),
+    /Unknown player/
+  );
+});
+
 test("opening phases follow server deadlines and delay the first turn", (t) => {
   const scheduler = new ManualRoomScheduler(1000);
   const { controller, events } = createOpeningController(7, scheduler);
