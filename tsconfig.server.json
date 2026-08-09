@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "rootDir": ".",
+    "outDir": "dist/server",
+    "noEmit": false,
+    "incremental": false,
+    "declaration": false,
+    "sourceMap": true,
+    "jsx": "react-jsx",
+    "plugins": []
+  },
+  "include": [
+    "server/**/*.ts",
+    "lib/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "dist",
+    "app",
+    "tests"
+  ]
+}

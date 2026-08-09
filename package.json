@@ -2,8 +2,10 @@
   "scripts": {
     "dev": "next dev",
     "dev:server": "tsx server/index.ts",
-    "build": "next build",
+    "build": "next build && npm run build:server",
+    "build:server": "tsc -p tsconfig.server.json",
     "start": "next start",
+    "start:server": "node dist/server/server/index.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts"
