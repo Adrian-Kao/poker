@@ -58,7 +58,7 @@ export default function Home() {
       <section className="hero-grid" aria-labelledby="site-title">
         <div className="hero-copy">
           <p className="stamp">朋友撲克房</p>
-          <h1 id="site-title">玩牌阿!</h1>
+          <h1 id="site-title">鬥陣來!</h1>
           <p className="hero-text">建立私人房間，用六位數房號邀請朋友加入。</p>
           <div className="hero-actions" aria-label="主要操作">
             <a className="primary-action" href="#create-room">
