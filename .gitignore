@@ -11,6 +11,7 @@ coverage/
 
 # Deployment
 .vercel/
+.colyseus-cloud.json
 
 # Local environment variables
 .env
