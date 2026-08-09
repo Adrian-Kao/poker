@@ -88,7 +88,7 @@ export default function RedDotPage() {
     roomCode={roomCode}
     status={status}
     statusText={message}
-    players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type }))}
+    players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type, botDifficulty: player.botDifficulty }))}
     maxPlayers={state?.maxPlayers ?? 4}
     ownId={ownId}
     isHost={isHost}
@@ -97,7 +97,7 @@ export default function RedDotPage() {
     allowBots
     minPlayers={2}
     onReady={() => send("SET_READY", { ready: !players.find((player) => player.id === ownId)?.ready })}
-    onAddBot={() => send("ADD_BOT", { difficulty: "normal" })}
+    onAddBot={(difficulty) => send("ADD_BOT", { difficulty })}
     onStart={() => send("START_GAME")}
     onLeave={leaveRoom}
   />;

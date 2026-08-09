@@ -11,6 +11,7 @@ import {
   type CreateHeartAttackPlayerInput,
   type HeartAttackState
 } from "../../lib/games/heart-attack";
+import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import { HeartAttackRoomStateSchema, PublicHeartAttackPlayer, syncPublicState } from "../schema/HeartAttackRoomState";
 import type { HeartAttackClientMessage, HeartAttackServerEvent } from "../messages/heartAttackMessages";
 import { toPenaltyNotice } from "../messages/heartAttackMessages";
@@ -122,11 +123,17 @@ export class HeartAttackRoomController {
     if (this.gameState) throw new Error("Cannot add bot after start.");
     if (this.lobbyPlayers.length >= this.publicState.maxPlayers) throw new Error("Room is full.");
 
-    const botId = `bot-${this.botCounter}`;
+    const botNumber = this.botCounter;
+    const botId = `bot-${botNumber}`;
     this.botCounter += 1;
     this.lobbyPlayers.push({
       id: botId,
-      nickname: `電腦${this.botCounter - 1}`,
+      nickname: getBotPlayerNameForDifficulty(
+        botNumber,
+        difficulty,
+        this.random,
+        this.lobbyPlayers.map((player) => player.nickname)
+      ),
       type: "bot",
       botDifficulty: difficulty,
       connected: true,

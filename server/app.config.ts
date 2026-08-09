@@ -5,6 +5,7 @@ import { NinetyNineRoom } from "./rooms/NinetyNineRoom";
 import { OldMaidRoom } from "./rooms/OldMaidRoom";
 import { PickRedPointsRoom } from "./rooms/PickRedPointsRoom";
 import { BigTwoRoom } from "./rooms/BigTwoRoom";
+import { SevensRoom } from "./rooms/SevensRoom";
 
 export function registerRooms(gameServer: Server) {
   gameServer.define("bluff", BluffRoom).filterBy(["roomCode"]);
@@ -13,4 +14,5 @@ export function registerRooms(gameServer: Server) {
   gameServer.define("old_maid", OldMaidRoom).filterBy(["roomCode"]);
   gameServer.define("pick_red_points", PickRedPointsRoom).filterBy(["roomCode"]);
   gameServer.define("big_two", BigTwoRoom).filterBy(["roomCode"]);
+  gameServer.define("sevens", SevensRoom).filterBy(["roomCode"]);
 }

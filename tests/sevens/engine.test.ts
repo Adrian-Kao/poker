@@ -42,6 +42,7 @@ function state(options: {
     hands: options.hands ?? Object.fromEntries(ids.map((id) => [id, [card("clubs", "A")]])),
     tableau: { spades: {}, hearts: {}, diamonds: {}, clubs: {} },
     coveredCards: Object.fromEntries(ids.map((id) => [id, []])),
+    finishOrder: [],
     currentPlayerId: options.current ?? "p1",
     startingPlayerId: "p1",
     direction: options.direction ?? (mode === "classic-four" ? "counterclockwise" : "clockwise"),
@@ -98,14 +99,15 @@ test("只能接在同花色既有牌的相鄰位置", () => {
   assert.equal(canPlayCard(game, "p1", "0-hearts-5"), false);
 });
 
-test("有合法牌時也可以自由選擇蓋牌", () => {
-  const game = state({ turn: 2, hands: { p1: [card("hearts", "7"), card("clubs", "A")], p2: [card("clubs", "A")], p3: [card("clubs", "A")], p4: [card("clubs", "A")] } });
-  assert.equal(canCoverCard(game, "p1", "0-clubs-A"), true);
+test("有合法牌時也可以自由選擇蓋牌，但第一張蓋牌不可蓋 A 或 K", () => {
+  const game = state({ turn: 2, hands: { p1: [card("hearts", "7"), card("clubs", "A"), card("clubs", "5")], p2: [card("clubs", "A")], p3: [card("clubs", "A")], p4: [card("clubs", "A")] } });
+  assert.equal(canCoverCard(game, "p1", "0-clubs-A"), false);
+  assert.equal(canCoverCard(game, "p1", "0-clubs-5"), true);
 });
 
 test("無合法牌時可蓋牌，且原狀態保持不變", () => {
-  const game = state({ turn: 2, hands: { p1: [card("clubs", "A")], p2: [card("clubs", "2")], p3: [card("clubs", "3")], p4: [card("clubs", "4")] } });
-  const next = coverCard(game, { type: "COVER_CARD", playerId: "p1", cardId: "0-clubs-A", timestamp: 1 });
+  const game = state({ turn: 2, hands: { p1: [card("clubs", "5")], p2: [card("clubs", "2")], p3: [card("clubs", "3")], p4: [card("clubs", "4")] } });
+  const next = coverCard(game, { type: "COVER_CARD", playerId: "p1", cardId: "0-clubs-5", timestamp: 1 });
   assert.equal(game.hands.p1.length, 1);
   assert.equal(next.hands.p1.length, 0);
   assert.equal(next.coveredCards.p1.length, 1);
@@ -116,11 +118,21 @@ test("經典模式逆時針，競速模式順時針", () => {
   assert.equal(getNextPlayer(state({ mode: "double-deck-race" }), "p1"), "p2");
 });
 
-test("合法打出最後一張牌立即結束", () => {
+test("玩家出完手牌後會離開輪序，全部玩家完成後才結束並依蓋牌分排名", () => {
   const game = state({ hands: { p1: [card("spades", "7")], p2: [card("clubs", "A")], p3: [card("clubs", "A")], p4: [card("clubs", "A")] } });
   const next = playCard(game, { type: "PLAY_CARD", playerId: "p1", cardId: "0-spades-7", timestamp: 1 });
-  assert.equal(next.phase, "finished");
-  assert.equal(next.winnerId, "p1");
+  assert.equal(next.phase, "playing");
+  assert.equal(next.currentPlayerId, "p4");
+  assert.deepEqual(next.finishOrder, ["p1"]);
+  next.coveredCards.p1 = [card("clubs", "K")];
+  next.coveredCards.p2 = [card("clubs", "2")];
+  next.coveredCards.p3 = [card("clubs", "2"), card("clubs", "3")];
+  next.coveredCards.p4 = [card("clubs", "2")];
+  next.finishOrder = ["p1", "p2", "p4", "p3"];
+  next.hands = { p1: [], p2: [], p3: [], p4: [] };
+  const finished = coverCard({ ...next, currentPlayerId: "p4", hands: { ...next.hands, p4: [card("clubs", "5")] } }, { type: "COVER_CARD", playerId: "p4", cardId: "0-clubs-5", timestamp: 2 });
+  assert.equal(finished.phase, "finished");
+  assert.equal(finished.winnerId, "p2");
 });
 
 test("經典蓋牌點數 A 至 K 為 1 至 13", () => {
@@ -133,16 +145,16 @@ test("競速模式已被占用的重複牌不可再打出", () => {
   assert.equal(canPlayCard(game, "p1", "1-hearts-7"), false);
 });
 
-test("競速模式第一次蓋牌有 A 或 K 時只能蓋邊牌", () => {
+test("競速模式第一次蓋牌不可蓋 A 或 K", () => {
   const game = state({ mode: "double-deck-race", turn: 2, hands: { p1: [card("clubs", "A"), card("clubs", "5")], p2: [card("clubs", "2")], p3: [card("clubs", "3")], p4: [card("clubs", "4")], p5: [card("clubs", "6")] } });
-  assert.equal(canCoverCard(game, "p1", "0-clubs-A"), true);
-  assert.equal(canCoverCard(game, "p1", "0-clubs-5"), false);
+  assert.equal(canCoverCard(game, "p1", "0-clubs-A"), false);
+  assert.equal(canCoverCard(game, "p1", "0-clubs-5"), true);
 });
 
-test("競速模式沒有 A 或 K 時允許第一次蓋牌 fallback", () => {
+test("第一次蓋牌非 A 或 K 時不再標記 fallback", () => {
   const game = state({ mode: "double-deck-race", turn: 2, hands: { p1: [card("clubs", "5")], p2: [card("clubs", "2")], p3: [card("clubs", "3")], p4: [card("clubs", "4")], p5: [card("clubs", "6")] } });
   const next = coverCard(game, { type: "COVER_CARD", playerId: "p1", cardId: "0-clubs-5", timestamp: 1 });
-  assert.equal(next.lastAction?.firstCoverFallback, true);
+  assert.equal(next.lastAction?.firstCoverFallback, false);
 });
 
 test("可見狀態不洩漏其他玩家手牌與蓋牌內容", () => {

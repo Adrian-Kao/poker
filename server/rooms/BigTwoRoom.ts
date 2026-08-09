@@ -1,5 +1,6 @@
 import { Client, Room } from "colyseus";
 import { TURN_TIMEOUT_MS, chooseBigTwoBotAction, createBigTwoGame, passTurn, playCards, resolveTurnTimeout, type BigTwoState } from "../../lib/games/big-two";
+import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import type { BigTwoClientMessage, BigTwoServerEvent } from "../messages/bigTwoMessages";
 import { BigTwoRoomStateSchema, syncBigTwoPublicState, type LobbyBigTwoPlayer } from "../schema/BigTwoRoomState";
 import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "../utilities/scheduler";
@@ -24,7 +25,7 @@ export class BigTwoRoomController {
   private sync() { syncBigTwoPublicState(this.publicState, this.game, this.lobby, this.deadline); }
   private sendHands() { this.lobby.filter((player) => player.type === "human").forEach((player) => this.sendHand(player.id)); }
   private sendHand(playerId: string) { if (!this.game) return; this.emit({ type: "PRIVATE_HAND", cards: this.game.hands[playerId] ?? [], bonusCard: this.game.bonusCardRecipientId === playerId }, playerId); }
-  private addBotInternal(difficulty: "easy" | "normal" | "hard") { this.lobby.push({ id: `bot-${this.botCounter}`, nickname: `電腦${this.botCounter}`, seat: this.lobby.length, type: "bot", botDifficulty: difficulty, connected: true, ready: true, host: false }); this.botCounter += 1; }
+  private addBotInternal(difficulty: "easy" | "normal" | "hard") { this.lobby.push({ id: `bot-${this.botCounter}`, nickname: getBotPlayerNameForDifficulty(this.botCounter, difficulty, this.options.random ?? Math.random, this.lobby.map((player) => player.nickname)), seat: this.lobby.length, type: "bot", botDifficulty: difficulty, connected: true, ready: true, host: false }); this.botCounter += 1; }
   private requireGame() { if (!this.game) throw new Error("Game is not started."); return this.game; }
   private requireHuman(sessionId: string) { const player = this.lobby.find((item) => item.sessionId === sessionId); if (!player) throw new Error("Unknown player."); return player; }
   private requireHost(sessionId: string) { const player = this.requireHuman(sessionId); if (!player.host) throw new Error("Only the host can do this."); return player; }

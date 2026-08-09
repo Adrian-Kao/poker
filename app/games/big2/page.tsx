@@ -107,7 +107,7 @@ export default function BigTwoPage() {
   function play() { if (!canPlay) return; send("PLAY_CARDS", { cardIds: selectedIds }); }
   function pass() { if (!canPass) return; send("PASS"); setSelectedIds([]); }
 
-  if (!state || state.phase === "waiting") return <UnifiedWaitingRoom gameName="大老二" roomCode={roomCode} round={state?.round ?? 1} status={status} statusText={statusText} players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type }))} maxPlayers={maxPlayers} ownId={ownId} isHost={isHost} canUseRoom={canUseRoom} canStart={canStart} allowBots minPlayers={maxPlayers} docsHref="/docs/games/big-two.md" onReady={() => send("SET_READY", { ready: !own?.ready })} onAddBot={() => send("ADD_BOT", { difficulty: "normal" })} onStart={() => send("START_GAME")} onLeave={leaveRoom} />;
+  if (!state || state.phase === "waiting") return <UnifiedWaitingRoom gameName="大老二" roomCode={roomCode} round={state?.round ?? 1} status={status} statusText={statusText} players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type, botDifficulty: player.botDifficulty }))} maxPlayers={maxPlayers} ownId={ownId} isHost={isHost} canUseRoom={canUseRoom} canStart={canStart} allowBots minPlayers={maxPlayers} docsHref="/docs/games/big-two.md" onReady={() => send("SET_READY", { ready: !own?.ready })} onAddBot={(difficulty) => send("ADD_BOT", { difficulty })} onStart={() => send("START_GAME")} onLeave={leaveRoom} />;
 
   const opponents = mapOpponents(players, ownId);
   const currentName = players.find((player) => player.id === state.currentPlayerId)?.nickname ?? "玩家";

@@ -14,6 +14,7 @@ import {
   type BluffState,
   type BotDifficulty
 } from "../../lib/games/bluff";
+import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import { BluffRoomStateSchema, syncBluffPublicState, type LobbyBluffPlayer } from "../schema/BluffRoomState";
 import type { BluffClientMessage, BluffServerEvent } from "../messages/bluffMessages";
 import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "../utilities/scheduler";
@@ -352,7 +353,12 @@ export class BluffRoomController {
     this.botCounter += 1;
     this.lobbyPlayers.push({
       id: `bot-${number}`,
-      nickname: `電腦${number}`,
+      nickname: getBotPlayerNameForDifficulty(
+        number,
+        difficulty,
+        this.random,
+        this.lobbyPlayers.map((player) => player.nickname)
+      ),
       seat: this.lobbyPlayers.length,
       type: "bot",
       botDifficulty: difficulty,

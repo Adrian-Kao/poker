@@ -1,5 +1,6 @@
 import { Client, Room } from "colyseus";
 import { advancePickRedPoints, choosePickRedBotAction, createPickRedPointsGame, PICK_RED_MAX_PLAYERS, PICK_RED_MIN_PLAYERS, PICK_RED_RECONNECT_WINDOW_SECONDS, PICK_RED_TURN_DURATION_MS, playPickRedHandCard, selectPickRedCaptureTarget, type BotDifficulty, type PickRedPointsState } from "../../lib/games/pick-red-points";
+import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import { PickRedPointsRoomStateSchema, syncPickRedPublicState, type LobbyPickRedPlayer } from "../schema/PickRedPointsRoomState";
 import type { PickRedPointsClientMessage, PickRedPointsServerEvent } from "../messages/pickRedPointsMessages";
 import type { PickRedPointsAction } from "../../lib/games/pick-red-points";
@@ -30,7 +31,7 @@ export class PickRedPointsRoomController {
   private startTurn() { this.cancelTurn(); if (!this.gameState || this.gameState.phase === "finished") { this.sync(); return; } this.turnToken += 1; const token = this.turnToken; this.publicState.turnDeadline = this.scheduler.now() + PICK_RED_TURN_DURATION_MS; this.sync(); this.sendHands(); this.turnTask = this.scheduler.setTimeout(() => this.processDue(token), PICK_RED_TURN_DURATION_MS); const player = this.lobbyPlayers.find((item) => item.id === this.gameState?.currentPlayerId); if (player?.type === "bot") this.botTask = this.scheduler.setTimeout(() => this.processDue(token), 700); }
   private sendHands() { this.lobbyPlayers.filter((player) => player.type === "human").forEach((player) => { if (this.gameState) this.emit({ type: "HAND_UPDATED", cards: this.gameState.hands[player.id] ?? [] }, player.id); }); }
   private sync() { syncPickRedPublicState(this.publicState, this.gameState, this.lobbyPlayers, this.publicState.turnDeadline); }
-  private addBotInternal(difficulty: BotDifficulty) { const id = `bot-${this.botCounter++}`; this.lobbyPlayers.push({ id, nickname: `電腦${this.botCounter - 1}`, seat: this.lobbyPlayers.length, type: "bot", botDifficulty: difficulty, connected: true, ready: true, host: false }); }
+  private addBotInternal(difficulty: BotDifficulty) { const number = this.botCounter++; const id = `bot-${number}`; this.lobbyPlayers.push({ id, nickname: getBotPlayerNameForDifficulty(number, difficulty, this.random, this.lobbyPlayers.map((player) => player.nickname)), seat: this.lobbyPlayers.length, type: "bot", botDifficulty: difficulty, connected: true, ready: true, host: false }); }
   private human(sessionId: string) { const player = this.lobbyPlayers.find((item) => item.sessionId === sessionId && item.type === "human"); if (!player) throw new Error("Unknown player."); return player; }
   private host(sessionId: string) { const player = this.human(sessionId); if (!player.host) throw new Error("Only the host can do this."); return player; }
   private fresh(actionId: string) { if (!actionId || this.actions.has(actionId)) throw new Error("ACTION_ALREADY_PROCESSED"); this.actions.add(actionId); }

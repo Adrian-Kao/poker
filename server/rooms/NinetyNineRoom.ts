@@ -12,6 +12,7 @@ import {
   type NinetyNineAction,
   type NinetyNineState
 } from "../../lib/games/ninety-nine";
+import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import { NinetyNineRoomStateSchema, syncNinetyNinePublicState, type LobbyNinetyNinePlayer } from "../schema/NinetyNineRoomState";
 import type { NinetyNineClientMessage, NinetyNineServerEvent } from "../messages/ninetyNineMessages";
 import { toCardPlayedEvent } from "../messages/ninetyNineMessages";
@@ -280,7 +281,12 @@ export class NinetyNineRoomController {
     this.botCounter += 1;
     this.lobbyPlayers.push({
       id: `bot-${number}`,
-      nickname: `電腦${number}`,
+      nickname: getBotPlayerNameForDifficulty(
+        number,
+        difficulty,
+        this.random,
+        this.lobbyPlayers.map((player) => player.nickname)
+      ),
       seat: this.lobbyPlayers.length,
       type: "bot",
       botDifficulty: difficulty,

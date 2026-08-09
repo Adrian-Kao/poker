@@ -17,6 +17,7 @@ export function createSevensGame(options: CreateSevensGameOptions): SevensState 
   return {
     phase: "playing", mode: options.mode, players, hands, tableau: createEmptyTableau(),
     coveredCards: Object.fromEntries(players.map((player) => [player.id, []])),
+    finishOrder: [],
     currentPlayerId: startingPlayerId, startingPlayerId,
     direction: options.mode === "classic-four" ? "counterclockwise" : "clockwise",
     turnNumber: 1, winnerId: null, standings: null, lastAction: null
@@ -58,13 +59,14 @@ export function playCard(state: SevensState, action: Extract<SevensAction, { typ
   const nextTableau = cloneTableau(state.tableau);
   nextTableau[card.suit][card.rank] = { ...card, playerId: action.playerId, turnNumber: state.turnNumber };
   const playedOut = nextHands[action.playerId].length === 0;
-  const nextPlayerId = playedOut ? null : getNextPlayer({ ...state, hands: nextHands }, action.playerId);
+  const nextFinishOrder = addFinishedPlayer(state.finishOrder, action.playerId, playedOut);
+  const nextPlayerId = getNextPlayer({ ...state, hands: nextHands }, action.playerId);
   let nextState: SevensState = {
-    ...state, hands: nextHands, tableau: nextTableau, turnNumber: state.turnNumber + 1,
+    ...state, hands: nextHands, tableau: nextTableau, finishOrder: nextFinishOrder, turnNumber: state.turnNumber + 1,
     currentPlayerId: nextPlayerId,
     lastAction: { type: "PLAY_CARD", playerId: action.playerId, card, nextPlayerId, turnNumber: state.turnNumber, firstCoverFallback: false }
   };
-  if (playedOut) nextState = finishGame(nextState);
+  if (!nextPlayerId) nextState = finishGame(nextState);
   return nextState;
 }
 
@@ -73,26 +75,28 @@ export function canCoverCard(state: SevensState, playerId: string, cardId: strin
   const hand = state.hands[playerId] ?? [];
   const card = hand.find((item) => item.id === cardId);
   if (!card) return false;
-  if (state.mode === "classic-four" || (state.coveredCards[playerId]?.length ?? 0) > 0) return true;
-  const hasEdge = hand.some((item) => item.rank === "A" || item.rank === "K");
-  return !hasEdge || card.rank === "A" || card.rank === "K";
+  if ((state.coveredCards[playerId]?.length ?? 0) === 0 && (card.rank === "A" || card.rank === "K")) return false;
+  return true;
 }
 
 export function coverCard(state: SevensState, action: Extract<SevensAction, { type: "COVER_CARD" }>): SevensState {
   if (!canCoverCard(state, action.playerId, action.cardId)) throw new Error("Illegal sevens cover.");
   const hand = state.hands[action.playerId];
   const card = hand.find((item) => item.id === action.cardId)!;
-  const firstCover = (state.coveredCards[action.playerId]?.length ?? 0) === 0;
-  const hasEdge = hand.some((item) => item.rank === "A" || item.rank === "K");
-  const firstCoverFallback = state.mode === "double-deck-race" && firstCover && !hasEdge;
+  const firstCoverFallback = false;
   const nextHands = { ...state.hands, [action.playerId]: hand.filter((item) => item.id !== card.id) };
+  const coveredOut = nextHands[action.playerId].length === 0;
+  const nextFinishOrder = addFinishedPlayer(state.finishOrder, action.playerId, coveredOut);
   const nextPlayerId = getNextPlayer({ ...state, hands: nextHands }, action.playerId);
-  return {
+  let nextState: SevensState = {
     ...state, hands: nextHands,
     coveredCards: { ...state.coveredCards, [action.playerId]: [...(state.coveredCards[action.playerId] ?? []), card] },
+    finishOrder: nextFinishOrder,
     currentPlayerId: nextPlayerId, turnNumber: state.turnNumber + 1,
     lastAction: { type: "COVER_CARD", playerId: action.playerId, card, nextPlayerId, turnNumber: state.turnNumber, firstCoverFallback }
   };
+  if (!nextPlayerId) nextState = finishGame(nextState);
+  return nextState;
 }
 
 export function getNextPlayer(state: SevensState, fromPlayerId: string) {
@@ -135,6 +139,11 @@ function createEmptyTableau(): SevensTableau {
 
 function cloneTableau(tableau: SevensTableau): SevensTableau {
   return Object.fromEntries(SEVENS_SUITS.map((suit) => [suit, { ...tableau[suit] }])) as SevensTableau;
+}
+
+function addFinishedPlayer(finishOrder: string[], playerId: string, isFinished: boolean) {
+  if (!isFinished || finishOrder.includes(playerId)) return finishOrder;
+  return [...finishOrder, playerId];
 }
 
 function finishGame(state: SevensState): SevensState {

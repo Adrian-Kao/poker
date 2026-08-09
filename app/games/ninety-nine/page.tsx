@@ -195,7 +195,7 @@ export default function NinetyNinePage() {
       roomCode={roomCode}
       status={status}
       statusText={statusText}
-      players={rawPlayers.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type }))}
+      players={rawPlayers.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type, botDifficulty: player.botDifficulty }))}
       maxPlayers={roomState?.maxPlayers ?? 6}
       ownId={ownPlayerId}
       isHost={isHost}
@@ -204,7 +204,7 @@ export default function NinetyNinePage() {
       allowBots
       minPlayers={2}
       onReady={() => send("SET_READY", { ready: !ownReady })}
-      onAddBot={() => send("ADD_BOT", { difficulty: "normal" })}
+      onAddBot={(difficulty) => send("ADD_BOT", { difficulty })}
       onStart={() => send("START_GAME")}
       onLeave={leaveAndCloseRoom}
     />;

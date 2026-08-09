@@ -14,15 +14,14 @@ export function calculateStandings(state: SevensState): SevensStanding[] {
       nickname: player.nickname,
       rank: 0,
       coveredCount: covered.length,
-      coveredPoints: state.mode === "classic-four" ? calculateClassicScore(covered) : null,
-      turnOrderIndex: order.indexOf(player.id)
+      coveredPoints: calculateClassicScore(covered),
+      turnOrderIndex: order.indexOf(player.id),
+      finishOrderIndex: state.finishOrder.indexOf(player.id)
     };
   });
   standings.sort((left, right) => {
-    if (state.mode === "classic-four" && left.coveredPoints !== right.coveredPoints) {
-      return (left.coveredPoints ?? 0) - (right.coveredPoints ?? 0);
-    }
-    return left.coveredCount - right.coveredCount || left.turnOrderIndex - right.turnOrderIndex;
+    if (left.coveredPoints !== right.coveredPoints) return (left.coveredPoints ?? 0) - (right.coveredPoints ?? 0);
+    return left.coveredCount - right.coveredCount || left.finishOrderIndex - right.finishOrderIndex || left.turnOrderIndex - right.turnOrderIndex;
   });
   return standings.map((standing, index) => ({ ...standing, rank: index + 1 }));
 }

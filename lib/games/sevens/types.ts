@@ -34,6 +34,7 @@ export interface SevensStanding {
   coveredCount: number;
   coveredPoints: number | null;
   turnOrderIndex: number;
+  finishOrderIndex: number;
 }
 export interface SevensState {
   phase: SevensPhase;
@@ -42,6 +43,7 @@ export interface SevensState {
   hands: Record<string, SevensCard[]>;
   tableau: SevensTableau;
   coveredCards: Record<string, SevensCard[]>;
+  finishOrder: string[];
   currentPlayerId: string | null;
   startingPlayerId: string;
   direction: SevensDirection;
