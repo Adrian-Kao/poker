@@ -15,6 +15,7 @@
     "@colyseus/ws-transport": "^0.16.5",
     "colyseus": "^0.16.5",
     "colyseus.js": "^0.16.22",
+    "express": "^5.2.1",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",
     "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
