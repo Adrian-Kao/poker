@@ -73,11 +73,14 @@ export default function Home() {
         </div>
 
         <div className="poster" aria-label="朋友撲克牌插圖">
-          <div className="poster-sun">純娛樂</div>
+          
           <div className="table-scene">
             <span className="card-chip blue">排七</span>
+            <span className="card-chip yellow2">吹牛</span>
             <span className="card-chip yellow">九九</span>
             <span className="card-chip cream">心臟病</span>
+            <span className="card-chip cream2">撿紅點</span>
+            <span className="card-chip blue2">抽鬼牌</span>
             <div className="hand-row">
               <span>J</span>
               <span>Q</span>
