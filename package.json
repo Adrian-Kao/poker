@@ -3,7 +3,7 @@
     "dev": "next dev",
     "dev:server": "tsx server/index.ts",
     "build": "next build && npm run build:server",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build:server": "tsc -p tsconfig.server.json && node dist/server/server/schema/verifySchemaBuild.js",
     "start": "next start",
     "start:server": "node dist/server/server/index.js",
     "lint": "next lint",
