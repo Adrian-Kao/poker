@@ -253,7 +253,7 @@ export default function LiarPage() {
 
       <RoomTable gameName="吹牛" className="bluff-table-like-ninety">
         {opponents.map((player) => (
-          <OpponentSeat key={player.id} player={player} />
+          <OpponentSeat key={player.id} player={player} current={player.id === roomState?.currentPlayerId} />
         ))}
 
         <p className="bluff-pile-count">
@@ -305,7 +305,7 @@ export default function LiarPage() {
               {clearingCards.map((card) => <div className="bluff-clearing-card" key={card.id}><PlayingCard card={card} /></div>)}
             </div>
           ) : null}
-          <RoomSelfBadge nickname={nickname || "你"} count={hand.length} />
+          <RoomSelfBadge nickname={nickname || "你"} active={isMyTurn} count={hand.length} />
 
           <div className="bluff-hand">
             {(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card) => (
@@ -348,8 +348,8 @@ function BluffTopbar({ roomCode, status, onLeave }: { roomCode: string; status: 
   return <RoomHeader gameName="吹牛" roomCode={roomCode} status={status} realOnly docsHref="/docs/games/bluff.md" onLeave={onLeave} />;
 }
 
-function OpponentSeat({ player }: { player: { id: string; name: string; cards: number; type: "bot" | "human"; position: SeatPosition } }) {
-  return <RoomOpponentSeat player={{ id: player.id, nickname: player.name, cardsRemaining: player.cards, type: player.type }} position={player.position} />;
+function OpponentSeat({ player, current }: { player: { id: string; name: string; cards: number; type: "bot" | "human"; position: SeatPosition }; current: boolean }) {
+  return <RoomOpponentSeat player={{ id: player.id, nickname: player.name, cardsRemaining: player.cards, type: player.type }} position={player.position} active={current} />;
 }
 
 function Stepper({ label, value, onDecrease, onIncrease }: { label: string; value: string; onDecrease: () => void; onIncrease: () => void }) {

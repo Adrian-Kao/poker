@@ -196,6 +196,13 @@ a {
     width: min(1240px, calc(100% - 160px));
 }
 
+.shared-room-table.shared-big-two-table .big-two-self-zone .room-self-badge {
+    position: absolute;
+    right: -80px;
+    bottom: 72px;
+    z-index: 8;
+}
+
 .big-two-self-zone .big-two-hand {
     position: relative;
     left: auto;
@@ -263,6 +270,12 @@ a {
     .big-two-self-zone {
         bottom: 8px;
         width: 100%;
+    }
+    .shared-room-table.shared-big-two-table .big-two-self-zone .room-self-badge {
+        right: 14px;
+        bottom: 96px;
+        scale: 0.82;
+        transform-origin: right bottom;
     }
     .big-two-self-zone .big-two-hand {
         min-height: 150px;
@@ -7558,7 +7571,7 @@ input[type="range"] {
 }
 
 .shared-room-table .shared-big-two-center {
-    top: 180px;
+    top: 270px;
 }
 
 .big-two-shared-controls {
@@ -7576,7 +7589,7 @@ input[type="range"] {
         min-height: 920px;
     }
     .shared-room-table .shared-big-two-center {
-        top: 210px;
+        top: 260px;
     }
     .big-two-shared-controls {
         flex-wrap: wrap;
