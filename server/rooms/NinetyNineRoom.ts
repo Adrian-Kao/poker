@@ -146,10 +146,8 @@ export class NinetyNineRoomController {
     this.requireFreshAction(actionId);
     this.requireHost(sessionId);
     if (this.gameState) throw new Error("Game already started.");
-    if (this.lobbyPlayers.length < 2) throw new Error("Ninety-nine needs at least 2 players.");
-    if (!this.lobbyPlayers.every((player) => player.type === "bot" || (player.connected && player.ready))) {
-      throw new Error("All joined players must be ready.");
-    }
+    if (this.lobbyPlayers.length !== this.publicState.maxPlayers) throw new Error("All seats must be filled.");
+    if (!this.lobbyPlayers.every((player) => player.type === "bot" || player.connected)) throw new Error("All players must be connected.");
 
     this.gameState = createNinetyNineGame({
       players: this.lobbyPlayers.map((player) => ({

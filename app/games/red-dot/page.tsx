@@ -46,7 +46,7 @@ export default function RedDotPage() {
           ? await client.join<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, roomCode: requestedRoom, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema)
           : await client.create<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, maxPlayers, bots, difficulty, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema);
         if (disposed) { await room.leave(); return; }
-        roomRef.current = room; setOwnId(`player-${room.sessionId}`); setStatus("connected"); setState(room.state); setRoomCode(room.state.roomCode || room.roomId.slice(0, 6)); setMessage(mode === "join" ? "已加入撿紅點等待室，請切換準備狀態。" : "撿紅點房間已建立，分享房號邀請朋友。");
+        roomRef.current = room; setOwnId(`player-${room.sessionId}`); setStatus("connected"); setState(room.state); setRoomCode(room.state.roomCode || room.roomId.slice(0, 6)); setMessage(mode === "join" ? "已加入撿紅點等待室，等待房主開始遊戲。" : "撿紅點房間已建立，分享房號邀請朋友。");
         room.onStateChange((next) => { setState(next); setRoomCode(next.roomCode || room.roomId.slice(0, 6)); setEvents((value) => value + 1); });
         room.onMessage<PickRedPointsServerEvent>("pick-red-points:event", (event) => { if (event.type === "HAND_UPDATED") { setHand(event.cards); if (!hasStartedDealRef.current && event.cards.length > 0) { hasStartedDealRef.current = true; setDealAnimation({ active: true, visible: 0 }); } setSelectedId((current) => event.cards.some((card) => card.id === current) ? current : event.cards[0]?.id ?? ""); } if (event.type === "STATE_EVENT") setMessage(event.message); if (event.type === "ACTION_REJECTED") setMessage(event.reason); if (event.type === "ROOM_CLOSED") window.location.href = "/"; });
         room.onError((_code, error) => { setStatus("error"); setMessage(error ?? "連線發生錯誤"); });
@@ -93,10 +93,9 @@ export default function RedDotPage() {
     ownId={ownId}
     isHost={isHost}
     canUseRoom={status === "connected" && !!roomRef.current}
-    canStart={players.length >= 2 && players.every((player) => player.ready)}
+    canStart={isHost && players.length === (state?.maxPlayers ?? 4)}
     allowBots
     minPlayers={2}
-    onReady={() => send("SET_READY", { ready: !players.find((player) => player.id === ownId)?.ready })}
     onAddBot={(difficulty) => send("ADD_BOT", { difficulty })}
     onStart={() => send("START_GAME")}
     onLeave={leaveRoom}

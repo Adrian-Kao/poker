@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Bot, BookOpen, CheckCircle2, Copy, LogOut, Play, ShieldCheck, Wifi, WifiOff } from "lucide-react";
+import { Bot, BookOpen, Copy, LogOut, Play, ShieldCheck, Wifi, WifiOff } from "lucide-react";
 
 export type RoomConnectionStatus = "connecting" | "connected" | "error" | "closed" | string;
 export type RoomSeatPosition = "top" | "left" | "right" | "upper-left" | "upper-right";
@@ -119,7 +119,6 @@ type UnifiedWaitingRoomProps = {
   minPlayers?: number;
   docsHref?: string;
   settings?: ReactNode;
-  onReady: () => void;
   onAddBot?: (difficulty: RoomBotDifficulty) => void;
   onStart: () => void;
   onLeave: () => void;
@@ -131,8 +130,7 @@ const botDifficultyOptions: Array<{ value: RoomBotDifficulty; label: string }> =
   { value: "hard", label: "困難" }
 ];
 
-export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, statusText, players, maxPlayers, ownId, isHost, canUseRoom, canStart, allowBots = false, realOnly = false, minPlayers = 2, docsHref, settings, onReady, onAddBot, onStart, onLeave }: UnifiedWaitingRoomProps) {
-  const ownReady = players.find((player) => player.id === ownId)?.ready ?? false;
+export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, statusText, players, maxPlayers, ownId, isHost, canUseRoom, canStart, allowBots = false, realOnly = false, minPlayers = 2, docsHref, settings, onAddBot, onStart, onLeave }: UnifiedWaitingRoomProps) {
   const emptySeats = Math.max(0, maxPlayers - players.length);
   const [botDifficulty, setBotDifficulty] = useState<RoomBotDifficulty>("normal");
   return (
@@ -159,11 +157,10 @@ export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, stat
         </div> : null}
         <div className="heart-lobby-list ninety-lobby-list">{players.map((player) => <WaitingSeat key={player.id} player={player} isSelf={player.id === ownId} />)}{Array.from({ length: emptySeats }).map((_, index) => <EmptyWaitingSeat key={`empty-${index}`} seatNumber={players.length + index + 1} />)}</div>
         <div className="heart-lobby-actions">
-          <button type="button" className={`ready-button ${ownReady ? "is-ready" : ""}`} onClick={onReady} disabled={!canUseRoom}><CheckCircle2 size={22} />{ownReady ? "取消準備" : "我準備好了"}</button>
           {allowBots && onAddBot ? <button type="button" className="ready-button bot-button" onClick={() => onAddBot(botDifficulty)} disabled={!isHost || !canUseRoom || players.length >= maxPlayers}><Bot size={22} />加電腦補位</button> : null}
           {isHost ? <button type="button" className="play-card-button compact-action" onClick={onStart} disabled={!canStart || players.length < minPlayers}><Play size={20} />開始遊戲</button> : null}
         </div>
-        <p className="waiting-room-hint">{gameName} 支援 {minPlayers} 至 {maxPlayers} 位玩家；全員準備後由房主開始。</p>
+        <p className="waiting-room-hint">{gameName} 支援 {minPlayers} 至 {maxPlayers} 位玩家；所有座位有人後由房主開始。</p>
         <p className={`connection-note ${status}`}>{statusText}</p>
       </section>
     </main>
@@ -171,7 +168,7 @@ export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, stat
 }
 
 function WaitingSeat({ player, isSelf }: { player: RoomPlayer; isSelf: boolean }) {
-  return <article className={`heart-lobby-seat lobby-${player.seat % 2 === 0 ? "yellow" : "green"} ${player.ready ? "ready" : ""}`}><span className="lobby-card-corner">{player.nickname.slice(0, 1) || "玩"}</span><span>座位 {player.seat + 1}{player.host ? " · 房主" : ""}</span><strong>{player.nickname}{isSelf ? "（你）" : ""}</strong><em>{player.type === "bot" ? `電腦玩家${player.botDifficulty ? ` · ${formatDifficulty(player.botDifficulty)}` : ""}` : "真人玩家"}</em><b>{player.ready ? "已準備" : "未準備"}</b></article>;
+  return <article className={`heart-lobby-seat lobby-${player.seat % 2 === 0 ? "yellow" : "green"} ready`}><span className="lobby-card-corner">{player.nickname.slice(0, 1) || "玩"}</span><span>座位 {player.seat + 1}{player.host ? " · 房主" : ""}</span><strong>{player.nickname}{isSelf ? "（你）" : ""}</strong><em>{player.type === "bot" ? `電腦玩家${player.botDifficulty ? ` · ${formatDifficulty(player.botDifficulty)}` : ""}` : "真人玩家"}</em><b>已加入</b></article>;
 }
 
 function EmptyWaitingSeat({ seatNumber }: { seatNumber: number }) {

@@ -54,7 +54,6 @@ export default function SevensPage() {
   const [mode, setMode] = useState<SevensMode>("classic-four");
   const [roomCode, setRoomCode] = useState("------");
   const [round, setRound] = useState(1);
-  const [ready, setReady] = useState(false);
   const [playerCount, setPlayerCount] = useState(4);
   const [game, setGame] = useState<SevensState | null>(null);
   const [selectedCardId, setSelectedCardId] = useState("");
@@ -107,7 +106,7 @@ export default function SevensPage() {
         roomRef.current = room;
         setSelfId(`player-${room.sessionId}`);
         setStatus("connected");
-        setStatusText(joinMode ? "已加入排七等待室，請切換準備狀態。" : "排七房間已建立，分享房號邀請朋友。");
+        setStatusText(joinMode ? "已加入排七等待室，等待房主開始遊戲。" : "排七房間已建立，分享房號邀請朋友。");
         syncState(room.state, room.roomId.slice(0, 6));
         room.onStateChange((next) => syncState(next, room.roomId.slice(0, 6)));
         room.onMessage<SevensServerEvent>("sevens:event", (event) => {
@@ -139,7 +138,7 @@ export default function SevensPage() {
     setGame(createClientGame(serverState, selfId, privateHand));
   }, [serverState, serverVersion, selfId, privateHand]);
 
-  const lobbyPlayers = useMemo(() => serverPlayers.length ? serverPlayers : createLobbyPlayers(playerCount, ready, selfId || "player-you"), [serverPlayers, playerCount, ready, selfId]);
+  const lobbyPlayers = useMemo(() => serverPlayers.length ? serverPlayers : createLobbyPlayers(playerCount, selfId || "player-you"), [serverPlayers, playerCount, selfId]);
   const ownHand = game?.hands[selfId] ?? [];
   const legalCards = useMemo(() => game ? getLegalPlays(game, selfId) : [], [game]);
   const legalIds = useMemo(() => new Set(legalCards.map((card) => card.id)), [legalCards]);
@@ -248,7 +247,7 @@ export default function SevensPage() {
   const ownLobbyPlayer = lobbyPlayers.find((player) => player.id === selfId);
   const isHost = Boolean(ownLobbyPlayer?.host || (createdAsHost && ownLobbyPlayer?.seat === 0));
   const canUseRoom = status === "connected" && Boolean(roomRef.current);
-  const canStart = canUseRoom && isHost && lobbyPlayers.length === playerCount && lobbyPlayers.every((player) => player.ready);
+  const canStart = canUseRoom && isHost && lobbyPlayers.length === playerCount;
 
   if (screen === "waiting") {
     return <UnifiedWaitingRoom
@@ -267,7 +266,6 @@ export default function SevensPage() {
       minPlayers={mode === "classic-four" ? 4 : 5}
       docsHref="/docs/games/sevens.md"
       settings={<SevensSettings mode={mode} />}
-      onReady={() => roomRef.current ? send("SET_READY", { ready: !ownLobbyPlayer?.ready }) : setReady((value) => !value)}
       onAddBot={(difficulty) => roomRef.current ? send("ADD_BOT", { difficulty }) : setPlayerCount((value) => Math.min(8, value + 1))}
       onStart={startGame}
       onLeave={leaveRoom}
@@ -451,9 +449,9 @@ function TableauRow({ suit, player, game, ownId, selectedCardId, dragState, onDr
   </div>;
 }
 
-function createLobbyPlayers(count: number, ownReady: boolean, ownId: string): RoomPlayer[] {
+function createLobbyPlayers(count: number, ownId: string): RoomPlayer[] {
   return Array.from({ length: count }, (_, seat) => seat === 0
-    ? { id: ownId, seat, nickname: "你", host: true, ready: ownReady, connected: true, type: "human" }
+    ? { id: ownId, seat, nickname: "你", host: true, ready: true, connected: true, type: "human" }
     : { id: `bot-${seat}`, seat, nickname: getBotPlayerNameForDifficulty(seat, "normal"), ready: true, connected: true, type: "bot", botDifficulty: "normal" });
 }
 

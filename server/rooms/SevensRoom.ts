@@ -121,9 +121,7 @@ export class SevensRoomController {
     this.fresh(actionId);
     this.requireHost(sessionId);
     if (this.lobby.length !== this.publicState.maxPlayers) throw new Error("ALL_SEATS_REQUIRED");
-    if (!this.lobby.every((player) => player.type === "bot" || (player.connected && player.ready))) {
-      throw new Error("ALL_PLAYERS_MUST_BE_READY");
-    }
+    if (!this.lobby.every((player) => player.type === "bot" || player.connected)) throw new Error("ALL_PLAYERS_MUST_BE_CONNECTED");
     this.game = createSevensGame({
       mode: this.publicState.mode as SevensMode,
       players: this.lobby.map((player) => ({

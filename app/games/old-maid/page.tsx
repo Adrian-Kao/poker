@@ -113,7 +113,7 @@ export default function OldMaidPage() {
         setStatus("connected");
         setStatusText(
           mode === "join"
-            ? "已加入抽鬼牌等待室，請切換準備狀態。"
+            ? "已加入抽鬼牌等待室，等待房主開始遊戲。"
             : "抽鬼牌房間已建立，分享房號邀請朋友。"
         );
         setRoomState(room.state);
@@ -255,7 +255,6 @@ export default function OldMaidPage() {
   const phase = (roomState?.phase ?? "waiting") as OldMaidPhase;
   useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const ownPlayer = players.find((player) => player.id === ownPlayerId);
-  const ownReady = ownPlayer?.ready ?? false;
   const isHost = ownPlayer?.host ?? false;
   const isMyTurn = phase === "playing" && roomState?.currentPlayerId === ownPlayerId;
   const isDrawTarget = phase === "playing" && roomState?.targetPlayerId === ownPlayerId;
@@ -264,8 +263,7 @@ export default function OldMaidPage() {
     canUseRoom
     && isHost
     && phase === "waiting"
-    && players.length >= 3
-    && players.every((player) => player.connected && player.ready);
+    && players.length === (roomState?.maxPlayers ?? 6);
   const opponents = players.filter((player) => player.id !== ownPlayerId);
   const currentPlayer = players.find((player) => player.id === roomState?.currentPlayerId);
   const targetPlayer = players.find((player) => player.id === roomState?.targetPlayerId);
@@ -353,7 +351,6 @@ export default function OldMaidPage() {
       canStart={canStart}
       realOnly
       minPlayers={3}
-      onReady={() => send("SET_READY", { ready: !ownReady })}
       onStart={() => send("START_GAME")}
       onLeave={leaveRoom}
     />;

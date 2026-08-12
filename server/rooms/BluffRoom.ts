@@ -149,10 +149,8 @@ export class BluffRoomController {
     this.requireFreshAction(actionId);
     this.requireHost(sessionId);
     if (this.gameState) throw new Error("Game already started.");
-    if (this.lobbyPlayers.length < 3) throw new Error("Bluff needs at least 3 players.");
-    if (!this.lobbyPlayers.every((player) => player.type === "bot" || (player.connected && player.ready))) {
-      throw new Error("All joined players must be ready.");
-    }
+    if (this.lobbyPlayers.length !== this.publicState.maxPlayers) throw new Error("All seats must be filled.");
+    if (!this.lobbyPlayers.every((player) => player.type === "bot" || player.connected)) throw new Error("All players must be connected.");
 
     this.gameState = createBluffGame({
       players: this.lobbyPlayers.map((player) => ({

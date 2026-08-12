@@ -4,7 +4,7 @@ import { BigTwoRoomController } from "../server/rooms/BigTwoRoom";
 import type { BigTwoServerEvent } from "../server/messages/bigTwoMessages";
 import { ManualRoomScheduler } from "../server/utilities/scheduler";
 
-test("big two room starts only after every human is ready and sends private hands to owners", () => {
+test("big two room starts when every seat is filled and sends private hands to owners", () => {
   const events: Array<{ event: BigTwoServerEvent; playerId?: string }> = [];
   const controller = new BigTwoRoomController({
     maxPlayers: 3,
@@ -16,9 +16,6 @@ test("big two room starts only after every human is ready and sends private hand
   controller.addHuman("s1", "房主", "tab-host");
   controller.addHuman("s2", "朋友", "tab-friend");
   controller.addBot("s1", "normal");
-  controller.setReady("s1", true);
-  assert.throws(() => controller.start("s1"), /ready/i);
-  controller.setReady("s2", true);
   controller.start("s1");
 
   assert.equal(controller.publicState.phase, "playing");

@@ -246,27 +246,21 @@ test("game start publishes counts while hands and draw options stay private", (t
   assert.equal(publicJson.includes("actionId"), false);
 });
 
-test("only the host can start and every joined player must be connected and ready", () => {
+test("only the host can start after every configured seat is filled", () => {
   const controller = createWaitingController();
-  controller.setReady("s1", "ready-s1", true);
-  controller.setReady("s2", "ready-s2", true);
-
-  assert.throws(
-    () => controller.startGame("s1", "start-before-ready"),
-    /connected and ready/
-  );
-
-  controller.setReady("s3", "ready-s3", true);
   assert.throws(
     () => controller.startGame("s2", "start-by-non-host"),
     /Only the host/
   );
   assert.equal(controller.publicState.phase, "waiting");
+  controller.startGame("s1", "start-by-host");
+  assert.equal(controller.publicState.phase, "shuffling");
 });
 
 test("public player schema references stay stable across lobby updates", () => {
   const controller = new OldMaidRoomController({
     roomCode: "123456",
+    maxPlayers: 3,
     scheduler: new ManualRoomScheduler(),
     random: createSeededRandom(3)
   });
@@ -446,6 +440,7 @@ function createWaitingController(
 ) {
   const controller = new OldMaidRoomController({
     roomCode: "123456",
+    maxPlayers: 3,
     scheduler,
     random: createSeededRandom(seed),
     emit: (event, playerId) => events.push({ event, playerId })

@@ -69,7 +69,7 @@ export default function LiarPage() {
         roomRef.current = room;
         setOwnPlayerId(`player-${room.sessionId}`);
         setStatus("connected");
-        setStatusText(mode === "join" ? "已加入吹牛等待室，請切換準備狀態。" : "吹牛房間已建立，分享房號邀請朋友。");
+        setStatusText(mode === "join" ? "已加入吹牛等待室，等待房主開始遊戲。" : "吹牛房間已建立，分享房號邀請朋友。");
         setRoomState(room.state);
         setRoomCode(room.state.roomCode || room.roomId.slice(0, 6));
         setStateVersion((version) => version + 1);
@@ -161,10 +161,9 @@ export default function LiarPage() {
   const phase = (roomState?.phase ?? "waiting") as BluffPhase;
   useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const ownPlayer = rawPlayers.find((player) => player.id === ownPlayerId);
-  const ownReady = ownPlayer?.ready ?? false;
   const isHost = ownPlayer?.host ?? false;
   const canUseRoom = status === "connected" && !!roomRef.current;
-  const canStart = canUseRoom && isHost && phase === "waiting" && rawPlayers.length >= 3 && rawPlayers.every((player) => player.ready);
+  const canStart = canUseRoom && isHost && phase === "waiting" && rawPlayers.length === (roomState?.maxPlayers ?? 4);
   const selectedCards = useMemo(() => hand.filter((card) => selectedIds.includes(card.id)), [hand, selectedIds]);
   const claimedRank = bluffRanks[claimedRankIndex] as BluffRank;
   const isMyTurn = roomState?.currentPlayerId === ownPlayerId && phase === "playing";
@@ -244,7 +243,6 @@ export default function LiarPage() {
       canStart={canStart}
       realOnly
       minPlayers={3}
-      onReady={() => send("SET_READY", { ready: !ownReady })}
       onStart={() => send("START_GAME")}
       onLeave={leaveAndCloseRoom}
     />;

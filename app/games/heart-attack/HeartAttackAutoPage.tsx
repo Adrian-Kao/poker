@@ -94,7 +94,7 @@ export default function HeartAttackAutoPage() {
         roomRef.current = room;
         setOwnPlayerId(`player-${room.sessionId}`);
         setStatus("connected");
-        setStatusText(mode === "join" ? "已加入等待室，請切換準備狀態。" : "房間已建立，分享房號邀請朋友。");
+        setStatusText(mode === "join" ? "已加入等待室，等待房主開始遊戲。" : "房間已建立，分享房號邀請朋友。");
         setRoomState(room.state);
         setStateVersion((version) => version + 1);
         setRoomCode(room.state.roomCode || room.roomId.slice(0, 6));
@@ -149,14 +149,13 @@ export default function HeartAttackAutoPage() {
   const players = useMemo(() => mapPlayers(roomState, ownPlayerId, nickname), [roomState, ownPlayerId, nickname, stateVersion]);
   const ownPlayer = players.find((player) => player.seat === "self") ?? fallbackPlayers[0];
   const isHost = rawPlayers[0]?.id === ownPlayerId;
-  const ownReady = rawPlayers.find((player) => player.id === ownPlayerId)?.ready ?? false;
   const currentPlayer = players.find((player) => player.id === roomState?.currentPlayerId) ?? ownPlayer;
   const phase = (roomState?.phase ?? "waiting") as HeartAttackPhase;
   useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const lastCard = roomState?.lastCard?.id ? toDemoCard(roomState.lastCard) : null;
   const penaltyResult = roomState?.penaltyNotice?.id ? toPenaltyResult(roomState.penaltyNotice) : null;
   const canUseRoom = status === "connected" && !!roomRef.current;
-  const canStart = canUseRoom && phase === "waiting" && rawPlayers.length >= 3 && rawPlayers.every((player) => player.ready);
+  const canStart = canUseRoom && isHost && phase === "waiting" && rawPlayers.length === (roomState?.maxPlayers ?? 4);
   const canSlap = canUseRoom && phase !== "waiting" && phase !== "round-result" && phase !== "finished";
 
   function send(type: "SET_READY" | "START_GAME" | "ADD_BOT" | "SLAP" | "PLAY_AGAIN" | "CLOSE_ROOM", extra: Record<string, unknown> = {}) {
@@ -197,7 +196,6 @@ export default function HeartAttackAutoPage() {
       canStart={canStart}
       realOnly
       minPlayers={3}
-      onReady={() => send("SET_READY", { ready: !ownReady })}
       onStart={() => send("START_GAME")}
       onLeave={leaveAndCloseRoom}
     />;

@@ -7,7 +7,16 @@ import { games, type Game } from "./data/games";
 import { useSoundControls } from "./SoundProvider";
 
 const difficultyOptions = ["簡單", "普通", "困難"];
-const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar", "old-maid", "red-dot", "big2", "sevens"]);
+const gameServerUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
+const roomSlugByType: Record<string, string> = {
+  big_two: "big2",
+  sevens: "sevens",
+  pick_red_points: "red-dot",
+  ninety_nine: "ninety-nine",
+  bluff: "liar",
+  heart_attack: "heart-attack",
+  old_maid: "old-maid"
+};
 
 export default function Home() {
   const router = useRouter();
@@ -18,12 +27,13 @@ export default function Home() {
   const [targetPlayers, setTargetPlayers] = useState(4);
   const [botCount, setBotCount] = useState(1);
   const [difficulty, setDifficulty] = useState("普通");
+  const [joinError, setJoinError] = useState("");
+  const [isFindingRoom, setIsFindingRoom] = useState(false);
 
   const game = games.find((item) => item.id === selectedGameId) ?? games[3];
   const humanPlayers = Math.max(1, targetPlayers - (game.bots ? botCount : 0));
   const canCreate = !game.realOnly || humanPlayers >= targetPlayers;
   const codeIsValid = /^\d{6}$/.test(joinCode);
-  const joinGame = serverBackedGames.has(game.slug) ? game : games.find((item) => item.id === "heart-attack") ?? game;
 
   function selectGame(nextGame: Game) {
     setSelectedGameId(nextGame.id);
@@ -43,14 +53,31 @@ export default function Home() {
     router.push(`/games/${game.slug}?${params.toString()}`);
   }
 
-  function joinRoom() {
-    if (!codeIsValid) return;
+  async function joinRoom() {
+    if (!codeIsValid || isFindingRoom) return;
+    setJoinError("");
+    setIsFindingRoom(true);
+    try {
+      const lookupUrl = new URL(`/rooms/${joinCode}`, gameServerUrl.replace(/^ws/, "http"));
+      const response = await fetch(lookupUrl);
+      if (!response.ok) {
+        setJoinError("找不到這個房號，請確認房間仍在等待中。");
+        return;
+      }
+      const result = await response.json() as { roomType?: string };
+      const slug = result.roomType ? roomSlugByType[result.roomType] : undefined;
+      if (!slug) throw new Error("Unsupported room type");
     const params = new URLSearchParams({
       mode: "join",
       room: joinCode,
       name: nickname || "玩家"
     });
-    router.push(`/games/${joinGame.slug}?${params.toString()}`);
+      router.push(`/games/${slug}?${params.toString()}`);
+    } catch {
+      setJoinError("目前無法查詢房間，請稍後再試。");
+    } finally {
+      setIsFindingRoom(false);
+    }
   }
 
   return (
@@ -260,12 +287,13 @@ export default function Home() {
 
           <div className="rule-callout">
             <Info size={20} />
-            目前請先選擇要加入的遊戲類型，再輸入該遊戲的六位數房號。
+            輸入六位數房號後，系統會自動帶你進入正確的遊戲等待室。
           </div>
 
-          <button className="confirm-room-button" disabled={!codeIsValid} onClick={joinRoom} type="button">
+          {joinError ? <p className="connection-note error">{joinError}</p> : null}
+          <button className="confirm-room-button" disabled={!codeIsValid || isFindingRoom} onClick={joinRoom} type="button">
             <Hash size={20} />
-            加入 {joinGame.name} 房間
+            {isFindingRoom ? "正在尋找房間..." : "加入房間"}
           </button>
         </div>
       </section>

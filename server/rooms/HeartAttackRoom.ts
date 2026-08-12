@@ -150,8 +150,10 @@ export class HeartAttackRoomController {
     this.syncPublic();
   }
 
-  startGame(actionId: string) {
+  startGame(sessionId: string, actionId: string) {
     this.requireFreshAction(actionId);
+    const host = this.lobbyPlayers.find((player) => player.type === "human");
+    if (!host || host.sessionId !== sessionId) throw new Error("Only the host can start the game.");
     this.startGameIfReady();
   }
 
@@ -223,26 +225,13 @@ export class HeartAttackRoomController {
     this.cancelTimers();
   }
 
-  private maybeAutoStart() {
-    if (!this.canStart()) return;
-    const actionId = `auto-start-${this.scheduler.now()}-${this.lobbyPlayers.length}`;
-    this.actionIds.add(actionId);
-    this.createGame();
-  }
+  private maybeAutoStart() {}
 
   private startGameIfReady() {
     if (this.gameState) throw new Error("Game already started.");
-    if (this.lobbyPlayers.length < 3) throw new Error("Heart attack needs at least 3 players.");
-    if (!this.allJoinedPlayersReady()) throw new Error("All joined players must be ready.");
+    if (this.lobbyPlayers.length !== this.publicState.maxPlayers) throw new Error("All seats must be filled.");
+    if (!this.lobbyPlayers.every((player) => player.type === "bot" || player.connected)) throw new Error("All players must be connected.");
     this.createGame();
-  }
-
-  private canStart() {
-    return !this.gameState && this.lobbyPlayers.length >= 3 && this.allJoinedPlayersReady();
-  }
-
-  private allJoinedPlayersReady() {
-    return this.lobbyPlayers.length > 0 && this.lobbyPlayers.every((player) => player.type === "bot" || (player.connected && player.ready));
   }
 
   private createGame() {
@@ -395,7 +384,7 @@ export class HeartAttackRoom extends Room {
           this.controller.setReady(client.sessionId, message.actionId, message.ready);
           break;
         case "START_GAME":
-          this.controller.startGame(message.actionId);
+          this.controller.startGame(client.sessionId, message.actionId);
           break;
         case "ADD_BOT":
           this.controller.addBot(message.actionId, message.difficulty);

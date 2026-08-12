@@ -67,7 +67,7 @@ export default function NinetyNinePage() {
         roomRef.current = room;
         setOwnPlayerId(`player-${room.sessionId}`);
         setStatus("connected");
-        setStatusText(mode === "join" ? "已加入九九等待室，請切換準備狀態。" : "九九房間已建立，分享房號邀請朋友。");
+        setStatusText(mode === "join" ? "已加入九九等待室，等待房主開始遊戲。" : "九九房間已建立，分享房號邀請朋友。");
         setRoomState(room.state);
         setRoomCode(room.state.roomCode || room.roomId.slice(0, 6));
         setStateVersion((version) => version + 1);
@@ -138,13 +138,12 @@ export default function NinetyNinePage() {
   }, [dealAnimation.active, dealAnimation.visible, hand.length]);
 
   const rawPlayers = useMemo(() => Array.from(roomState?.players ?? []), [roomState, stateVersion]);
-  const ownReady = rawPlayers.find((player) => player.id === ownPlayerId)?.ready ?? false;
   const ownPlayer = rawPlayers.find((player) => player.id === ownPlayerId);
   const isHost = ownPlayer?.host ?? false;
   const phase = (roomState?.phase ?? "waiting") as NinetyNinePhase;
   useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const canUseRoom = status === "connected" && !!roomRef.current;
-  const canStart = canUseRoom && isHost && phase === "waiting" && rawPlayers.length >= 2 && rawPlayers.every((player) => player.ready);
+  const canStart = canUseRoom && isHost && phase === "waiting" && rawPlayers.length === (roomState?.maxPlayers ?? 4);
   const selectedCard = hand.find((card) => card.id === selectedCardId) ?? hand[0];
   const selectedLegalActions = selectedCard ? legalActions.filter((action) => action.cardId === selectedCard.id) : [];
   const isMyTurn = roomState?.currentPlayerId === ownPlayerId;
@@ -203,7 +202,6 @@ export default function NinetyNinePage() {
       canStart={canStart}
       allowBots
       minPlayers={2}
-      onReady={() => send("SET_READY", { ready: !ownReady })}
       onAddBot={(difficulty) => send("ADD_BOT", { difficulty })}
       onStart={() => send("START_GAME")}
       onLeave={leaveAndCloseRoom}

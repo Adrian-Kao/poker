@@ -4,14 +4,11 @@ import { SevensRoomController } from "../../server/rooms/SevensRoom";
 import type { SevensServerEvent } from "../../server/messages/sevensMessages";
 import { ManualRoomScheduler } from "../../server/utilities/scheduler";
 
-test("sevens room starts only when every seat is filled and every human is ready", () => {
+test("sevens room starts when every seat is filled", () => {
   const events: Array<{ event: SevensServerEvent; playerId?: string }> = [];
   const controller = new SevensRoomController({ mode: "classic-four", maxPlayers: 4, bots: 2, scheduler: new ManualRoomScheduler(), random: seeded(7), emit: (event, playerId) => events.push({ event, playerId }) });
   controller.addHuman("s1", "房主", "tab-host");
   controller.addHuman("s2", "朋友", "tab-friend");
-  controller.setReady("s1", "ready-1", true);
-  assert.throws(() => controller.start("s1", "start-too-soon"), /ready/i);
-  controller.setReady("s2", "ready-2", true);
   controller.start("s1", "start-ok");
 
   assert.equal(controller.publicState.phase, "playing");

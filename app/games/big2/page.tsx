@@ -49,7 +49,7 @@ export default function BigTwoPage() {
         roomRef.current = room;
         setOwnId(`player-${room.sessionId}`);
         setStatus("connected");
-        setStatusText(mode === "join" ? "已加入大老二等待室，請切換準備狀態。" : "大老二房間已建立，分享房號邀請朋友。");
+        setStatusText(mode === "join" ? "已加入大老二等待室，等待房主開始遊戲。" : "大老二房間已建立，分享房號邀請朋友。");
         setState(room.state);
         setRoomCode(room.state.roomCode || room.roomId.slice(0, 6));
         setStateVersion((value) => value + 1);
@@ -84,7 +84,7 @@ export default function BigTwoPage() {
   const isHost = own?.host ?? false;
   const maxPlayers = state?.maxPlayers ?? 4;
   const canUseRoom = status === "connected" && !!roomRef.current;
-  const canStart = canUseRoom && isHost && players.length === maxPlayers && players.every((player) => player.ready);
+  const canStart = canUseRoom && isHost && players.length === maxPlayers;
   const seconds = useCountdown(state?.turnDeadline ?? 0, stateVersion);
   useBgmMode(!state || state.phase === "waiting" ? "lobby" : "playing");
 
@@ -107,7 +107,7 @@ export default function BigTwoPage() {
   function play() { if (!canPlay) return; send("PLAY_CARDS", { cardIds: selectedIds }); }
   function pass() { if (!canPass) return; send("PASS"); setSelectedIds([]); }
 
-  if (!state || state.phase === "waiting") return <UnifiedWaitingRoom gameName="大老二" roomCode={roomCode} round={state?.round ?? 1} status={status} statusText={statusText} players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type, botDifficulty: player.botDifficulty }))} maxPlayers={maxPlayers} ownId={ownId} isHost={isHost} canUseRoom={canUseRoom} canStart={canStart} allowBots minPlayers={maxPlayers} docsHref="/docs/games/big-two.md" onReady={() => send("SET_READY", { ready: !own?.ready })} onAddBot={(difficulty) => send("ADD_BOT", { difficulty })} onStart={() => send("START_GAME")} onLeave={leaveRoom} />;
+  if (!state || state.phase === "waiting") return <UnifiedWaitingRoom gameName="大老二" roomCode={roomCode} round={state?.round ?? 1} status={status} statusText={statusText} players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type, botDifficulty: player.botDifficulty }))} maxPlayers={maxPlayers} ownId={ownId} isHost={isHost} canUseRoom={canUseRoom} canStart={canStart} allowBots minPlayers={maxPlayers} docsHref="/docs/games/big-two.md" onAddBot={(difficulty) => send("ADD_BOT", { difficulty })} onStart={() => send("START_GAME")} onLeave={leaveRoom} />;
 
   const opponents = mapOpponents(players, ownId);
   const currentName = players.find((player) => player.id === state.currentPlayerId)?.nickname ?? "玩家";
