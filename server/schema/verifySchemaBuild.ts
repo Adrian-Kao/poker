@@ -151,7 +151,7 @@ function verifyHeartAttack() {
   lifecycle("heart_attack", controller, [
     () => { controller.addHuman("s1", "P1", "c1"); controller.addHuman("s2", "P2", "c2"); controller.addHuman("s3", "P3", "c3"); },
     () => controller.startGame("s1", "start"),
-    () => scheduler.advanceBy(800)
+    () => scheduler.advanceBy(900)
   ], scheduler);
 }
 

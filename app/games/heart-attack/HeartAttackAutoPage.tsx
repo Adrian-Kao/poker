@@ -195,7 +195,7 @@ export default function HeartAttackAutoPage() {
       canUseRoom={canUseRoom}
       canStart={canStart}
       realOnly
-      minPlayers={3}
+      minPlayers={2}
       onStart={() => send("START_GAME")}
       onLeave={leaveAndCloseRoom}
     />;

@@ -2,10 +2,6 @@ import { createStandardDeck } from "../core/cards";
 import { createSeededRandom, shuffle, type RandomSource } from "../core/random";
 import {
   AUTO_PLAY_INTERVAL_MS,
-  AUTO_PLAY_MIN_INTERVAL_MS,
-  AUTO_PLAY_SPEEDUP_EVERY_CARDS,
-  AUTO_PLAY_SPEEDUP_STEP_MS,
-  HEART_ATTACK_HAND_SIZE,
   ROUND_RESULT_DISPLAY_MS,
   SLAP_WINDOW_MS
 } from "./constants";
@@ -27,7 +23,7 @@ export type CreateHeartAttackGameOptions = {
 };
 
 export function createHeartAttackGame(options: CreateHeartAttackGameOptions): HeartAttackState {
-  if (options.players.length < 3) throw new Error("Heart attack requires at least 3 players.");
+  if (options.players.length < 2) throw new Error("Heart attack requires at least 2 players.");
 
   const ids = new Set(options.players.map((player) => player.id));
   if (ids.size !== options.players.length) throw new Error("Player ids must be unique.");
@@ -36,8 +32,9 @@ export function createHeartAttackGame(options: CreateHeartAttackGameOptions): He
   const deck = buildHeartAttackDeck(options.players.length, random);
   const playerDecks: Record<string, HeartAttackCard[]> = {};
 
-  options.players.forEach((player, index) => {
-    playerDecks[player.id] = deck.slice(index * HEART_ATTACK_HAND_SIZE, (index + 1) * HEART_ATTACK_HAND_SIZE);
+  options.players.forEach((player) => { playerDecks[player.id] = []; });
+  deck.forEach((card, index) => {
+    playerDecks[options.players[index % options.players.length].id].push(card);
   });
 
   const initialTimestamp = options.initialTimestamp ?? 0;
@@ -69,20 +66,16 @@ export function createHeartAttackGame(options: CreateHeartAttackGameOptions): He
   };
 }
 
-export function buildHeartAttackDeck(playerCount: number, random: RandomSource): HeartAttackCard[] {
-  const cardsNeeded = playerCount * HEART_ATTACK_HAND_SIZE;
-  const deckCount = Math.ceil(cardsNeeded / 54);
-  const decks: HeartAttackCard[] = [];
-
-  for (let deckIndex = 1; deckIndex <= deckCount; deckIndex += 1) {
-    decks.push(
+export function buildHeartAttackDeck(_playerCount: number, random: RandomSource): HeartAttackCard[] {
+  const deckIndex = 1;
+  return shuffle(
+    [
       ...createStandardDeck().map((card) => ({ ...card, id: `deck-${deckIndex}-${card.suit}-${card.rank}`, deckIndex })),
       { id: `deck-${deckIndex}-joker-red`, deckIndex, suit: null, rank: "JOKER" },
       { id: `deck-${deckIndex}-joker-black`, deckIndex, suit: null, rank: "JOKER" }
-    );
-  }
-
-  return shuffle(decks, random).slice(0, cardsNeeded);
+    ],
+    random
+  );
 }
 
 export function applyHeartAttackAction(state: HeartAttackState, action: HeartAttackAction): HeartAttackState {
@@ -214,10 +207,8 @@ export function getHeartAttackWinner(state: HeartAttackState) {
   return state.winnerIds[0] ?? state.winnerId;
 }
 
-export function getAutoPlayIntervalMs(turnNumber: number) {
-  const completedCardsInRound = Math.max(0, turnNumber - 1);
-  const speedSteps = Math.floor(completedCardsInRound / AUTO_PLAY_SPEEDUP_EVERY_CARDS);
-  return Math.max(AUTO_PLAY_MIN_INTERVAL_MS, AUTO_PLAY_INTERVAL_MS - speedSteps * AUTO_PLAY_SPEEDUP_STEP_MS);
+export function getAutoPlayIntervalMs(_turnNumber: number) {
+  return AUTO_PLAY_INTERVAL_MS;
 }
 
 function autoPlayTopCard(state: HeartAttackState, playerId: string, timestamp: number): HeartAttackState {

@@ -431,7 +431,7 @@ function createRoomCode(random: () => number) {
 
 function clampMaxPlayers(value: number) {
   if (!Number.isFinite(value)) return 4;
-  return Math.max(3, Math.min(8, Math.floor(value)));
+  return Math.max(2, Math.min(8, Math.floor(value)));
 }
 
 function sanitizeNickname(value: string) {
