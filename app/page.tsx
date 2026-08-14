@@ -285,10 +285,7 @@ export default function Home() {
             {codeIsValid ? "房號格式正確" : "請輸入六位數房號"}
           </div>
 
-          <div className="rule-callout">
-            <Info size={20} />
-            輸入六位數房號後，系統會自動帶你進入正確的遊戲等待室。
-          </div>
+         
 
           {joinError ? <p className="connection-note error">{joinError}</p> : null}
           <button className="confirm-room-button" disabled={!codeIsValid || isFindingRoom} onClick={joinRoom} type="button">
