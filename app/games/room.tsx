@@ -54,18 +54,30 @@ export function RoomHeader({ gameName, roomCode, round = 1, status, realOnly = f
 
 export const UnifiedGameHeader = RoomHeader;
 
-export function RoomTable({ gameName, className = "", children, aside, controls }: { gameName: string; className?: string; children: ReactNode; aside?: ReactNode; controls?: ReactNode }) {
+type ResponsiveGameLayoutProps = {
+  gameName: string;
+  className?: string;
+  children: ReactNode;
+  aside?: ReactNode;
+  controls?: ReactNode;
+};
+
+export function ResponsiveGameLayout({ gameName, className = "", children, aside, controls }: ResponsiveGameLayoutProps) {
   return (
     <>
-      <div className={`shared-room-layout ${aside ? "has-aside" : ""}`}>
-        <section className={`bluff-table shared-room-table ${className}`} aria-label={`${gameName}牌桌`}>
+      <div className={`shared-room-layout responsive-game-layout ${aside ? "has-aside" : ""}`}>
+        <section className={`bluff-table shared-room-table responsive-game-table ${className}`} aria-label={`${gameName}牌桌`}>
           {children}
         </section>
         {aside ? <aside className="shared-room-aside">{aside}</aside> : null}
       </div>
-      {controls ? <section className="shared-room-controls">{controls}</section> : null}
+      {controls ? <section className="shared-room-controls responsive-action-bar">{controls}</section> : null}
     </>
   );
+}
+
+export function RoomTable(props: ResponsiveGameLayoutProps) {
+  return <ResponsiveGameLayout {...props} />;
 }
 
 export function RoomOpponentSeat({ player, position, active = false, passed = false }: { player?: Pick<RoomPlayer, "id" | "nickname" | "type" | "connected" | "cardsRemaining" | "status">; position: RoomSeatPosition; active?: boolean; passed?: boolean }) {

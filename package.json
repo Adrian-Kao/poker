@@ -4,6 +4,10 @@
     "dev:server": "tsx server/index.ts",
     "build": "next build && npm run build:server",
     "build:server": "tsc -p tsconfig.server.json && node dist/server/server/schema/verifySchemaBuild.js",
+    "remotion:studio": "remotion studio remotion/index.ts",
+    "remotion:compositions": "remotion compositions remotion/index.ts",
+    "remotion:still": "remotion still remotion/index.ts PokerPromo out/poker-promo-frame.png --frame=180 --scale=0.25",
+    "remotion:render": "remotion render remotion/index.ts PokerPromo out/poker-promo.mp4",
     "start": "next start",
     "start:server": "node dist/server/server/index.js",
     "lint": "next lint",
@@ -14,12 +18,14 @@
     "@colyseus/schema": "^3.0.76",
     "@colyseus/tools": "^0.16.0",
     "@colyseus/ws-transport": "^0.16.5",
+    "@remotion/cli": "^4.0.509",
     "colyseus": "^0.16.5",
     "colyseus.js": "^0.16.22",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "remotion": "^4.0.509"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",

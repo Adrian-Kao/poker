@@ -7655,3 +7655,840 @@ input[type="range"] {
         flex-wrap: wrap;
     }
 }
+
+/* Responsive game layout v2. The table keeps game-specific content, while the
+   common shell owns viewport, opponent, hand, and action-bar geometry. */
+
+:root {
+    --game-safe-top: env(safe-area-inset-top, 0px);
+    --game-safe-right: env(safe-area-inset-right, 0px);
+    --game-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --game-safe-left: env(safe-area-inset-left, 0px);
+    --game-card-width: clamp(72px, 7vw, 112px);
+}
+
+html,
+body {
+    min-width: 320px;
+    max-width: 100%;
+    overflow-x: clip;
+}
+
+.heart-auto-shell,
+.ninety-online-shell,
+.bluff-page-shell,
+.red-dot-page,
+.sevens-shell,
+.old-maid-shell {
+    min-height: 100dvh;
+    padding-right: max(clamp(10px, 3vw, 42px), var(--game-safe-right));
+    padding-bottom: max(22px, var(--game-safe-bottom));
+    padding-left: max(clamp(10px, 3vw, 42px), var(--game-safe-left));
+    overflow-x: clip;
+}
+
+.responsive-game-layout {
+    container-type: inline-size;
+    min-width: 0;
+}
+
+.responsive-game-table {
+    isolation: isolate;
+}
+
+.responsive-action-bar,
+.big-two-shared-controls,
+.ninety-command-bar,
+.bluff-table-controls {
+    padding-bottom: max(0px, var(--game-safe-bottom));
+}
+
+.big-two-hand,
+.ninety-nine-hand,
+.bluff-hand,
+.red-dot-hand,
+.sevens-hand,
+.old-maid-hand {
+    max-width: 100%;
+    min-width: 0;
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: 22px;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+    .room-topbar {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    .room-topbar h1 {
+        font-size: clamp(2rem, 4vw, 3.4rem);
+    }
+
+    .room-topbar .bluff-meta {
+        grid-column: 2 / 4;
+        justify-content: flex-end;
+    }
+
+    .room-topbar .bluff-actions {
+        grid-column: 3;
+    }
+
+    .shared-room-table .room-opponent-seat .bluff-player-badge {
+        min-width: clamp(154px, 19vw, 205px);
+        padding: 8px 10px;
+    }
+
+    .shared-room-table .room-opponent-seat .bluff-avatar {
+        width: 46px;
+        height: 46px;
+        font-size: 1.35rem;
+    }
+
+    .shared-room-table .room-opponent-seat.left {
+        left: 14px;
+    }
+
+    .shared-room-table .room-opponent-seat.right {
+        right: 14px;
+    }
+
+    .shared-room-table .room-opponent-seat.upper-left {
+        left: 26px;
+    }
+
+    .shared-room-table .room-opponent-seat.upper-right {
+        right: 26px;
+    }
+
+    .shared-room-table .shared-big-two-center {
+        width: min(560px, calc(100% - 390px));
+    }
+
+    .big-two-self-zone,
+    .bluff-self-zone {
+        width: min(980px, calc(100% - 80px));
+    }
+}
+
+@media (max-width: 767px) {
+    :root {
+        --game-card-width: clamp(68px, 22vw, 86px);
+    }
+
+    .heart-auto-shell,
+    .ninety-online-shell,
+    .bluff-page-shell,
+    .red-dot-page,
+    .sevens-shell,
+    .old-maid-shell {
+        width: 100%;
+        padding-top: max(8px, var(--game-safe-top));
+        padding-right: max(6px, var(--game-safe-right));
+        padding-left: max(6px, var(--game-safe-left));
+    }
+
+    .room-topbar {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .room-topbar .bluff-logo {
+        min-width: 88px;
+        min-height: 52px;
+        padding: 7px 10px;
+        border-width: 4px;
+        font-size: clamp(1.35rem, 7vw, 2rem);
+    }
+
+    .room-topbar h1 {
+        min-width: 0;
+        padding-left: 10px;
+        border-left-width: 3px;
+        font-size: clamp(1.75rem, 9vw, 2.8rem);
+        overflow-wrap: anywhere;
+    }
+
+    .room-topbar .bluff-meta,
+    .room-topbar .bluff-actions {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        width: 100%;
+    }
+
+    .room-topbar .bluff-meta span,
+    .room-topbar .bluff-meta strong,
+    .room-topbar .bluff-actions a,
+    .room-topbar .bluff-actions button {
+        min-width: 0;
+        min-height: 46px;
+        padding: 7px 8px;
+        border-width: 4px;
+        border-radius: 12px;
+        box-shadow: 4px 4px 0 var(--ink);
+        font-size: clamp(.82rem, 3.7vw, 1rem);
+        text-align: center;
+    }
+
+    .room-topbar .bluff-meta span:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .responsive-game-layout {
+        width: 100%;
+    }
+
+    .shared-room-table,
+    .shared-room-table.ninety-online-table,
+    .shared-room-table.heart-auto-table,
+    .shared-room-table.red-dot-board,
+    .shared-room-table.shared-big-two-table,
+    .shared-room-table.bluff-table-like-ninety,
+    .shared-room-table.old-maid-shared-table {
+        width: 100%;
+        min-height: 820px;
+        border-width: 5px;
+        border-radius: 24px;
+        box-shadow: 7px 7px 0 rgba(16, 16, 16, .4);
+    }
+
+    /* Five compact opponent anchors form a dedicated band above the board. */
+    .shared-room-table .room-opponent-seat {
+        gap: 3px;
+        scale: 1;
+        transform-origin: top center;
+    }
+
+    .shared-room-table .room-opponent-seat.top {
+        top: 8px;
+        transform: translateX(-50%) scale(.58);
+    }
+
+    .shared-room-table .room-opponent-seat.upper-left {
+        top: 78px;
+        left: 2px;
+        display: grid;
+        transform: scale(.52);
+        transform-origin: top left;
+    }
+
+    .shared-room-table .room-opponent-seat.upper-right {
+        top: 78px;
+        right: 2px;
+        display: grid;
+        transform: scale(.52);
+        transform-origin: top right;
+    }
+
+    .shared-room-table .room-opponent-seat.left {
+        top: 154px;
+        left: 2px;
+        transform: scale(.54);
+        transform-origin: top left;
+    }
+
+    .shared-room-table .room-opponent-seat.right {
+        top: 154px;
+        right: 2px;
+        transform: scale(.54);
+        transform-origin: top right;
+    }
+
+    .shared-room-table .room-opponent-seat .bluff-player-badge {
+        min-width: 170px;
+        padding: 7px 9px;
+    }
+
+    .shared-room-table .room-opponent-seat .bluff-player-badge em {
+        display: none;
+    }
+
+    .shared-room-table .room-opponent-seat .bluff-avatar {
+        width: 44px;
+        height: 44px;
+        font-size: 1.2rem;
+    }
+
+    .shared-room-table .room-card-backs {
+        width: 130px;
+        height: 60px;
+    }
+
+    .shared-room-table .room-card-backs i {
+        width: 42px;
+        height: 58px;
+    }
+
+    .shared-room-table .room-seat-state {
+        top: 84px;
+        min-width: 86px;
+        padding: 5px 8px;
+    }
+
+    .shared-room-controls,
+    .big-two-shared-controls,
+    .ninety-command-bar,
+    .bluff-table-controls {
+        position: sticky;
+        bottom: 0;
+        z-index: 30;
+        width: calc(100% - 8px);
+        margin-top: 10px;
+        padding-bottom: max(8px, var(--game-safe-bottom));
+    }
+
+    /* Big Two */
+    .shared-room-table.shared-big-two-table {
+        min-height: 880px;
+    }
+
+    .shared-room-table .shared-big-two-center {
+        top: 238px;
+        width: calc(100% - 18px);
+        transform: translateX(-50%);
+    }
+
+    .big-two-self-zone {
+        right: 4px;
+        bottom: 8px;
+        left: 4px;
+        width: auto;
+        transform: none;
+    }
+
+    .shared-room-table.shared-big-two-table .big-two-self-zone .room-self-badge {
+        right: 8px;
+        bottom: 160px;
+        max-width: 168px;
+        scale: .72;
+    }
+
+    .big-two-self-zone .big-two-hand {
+        min-height: 170px;
+        overflow-x: auto;
+        padding: 28px 18px 8px;
+    }
+
+    .big-two-card-button {
+        flex: 0 0 var(--game-card-width);
+        width: var(--game-card-width);
+        margin-left: clamp(-22px, -5vw, -12px);
+    }
+
+    .big-two-card-button:first-child {
+        margin-left: 0;
+    }
+
+    .big-two-shared-controls > * {
+        min-height: 54px;
+    }
+
+    .big-two-shared-controls button {
+        min-height: 52px;
+        border-width: 4px;
+        font-size: 1.05rem;
+    }
+
+    /* Ninety-nine */
+    .shared-room-table.ninety-online-table {
+        min-height: 850px;
+    }
+
+    .shared-room-table.ninety-online-table .ninety-center {
+        top: 285px;
+        width: calc(100% - 20px);
+        gap: 7px;
+        transform: translateX(-50%);
+    }
+
+    .shared-room-table.ninety-online-table .total-hub {
+        min-width: min(210px, 62vw);
+        padding: 10px 16px;
+        border-width: 5px;
+    }
+
+    .shared-room-table.ninety-online-table .total-hub strong {
+        font-size: clamp(4.3rem, 22vw, 6.5rem);
+    }
+
+    .shared-room-table.ninety-online-table .ninety-center .last-card-stack {
+        position: absolute;
+        top: 30px;
+        left: calc(50% + 92px);
+        scale: .72;
+    }
+
+    .shared-room-table.ninety-online-table .turn-callout.online {
+        max-width: calc(100vw - 34px);
+        padding: 7px 11px;
+        border-width: 4px;
+        font-size: .9rem;
+    }
+
+    .shared-room-table.ninety-online-table .ninety-self-zone {
+        right: 4px;
+        bottom: 8px;
+        left: 4px;
+        width: auto;
+        transform: none;
+    }
+
+    .online-hand.fan-hand {
+        min-height: 178px;
+        overflow-x: auto;
+        justify-content: flex-start;
+        padding: 30px 20px 8px;
+        transform: none;
+    }
+
+    .online-hand .ninety-nine-card.face-card {
+        flex: 0 0 var(--game-card-width);
+        width: var(--game-card-width);
+        margin-inline: clamp(-14px, -3vw, -7px);
+    }
+
+    /* Bluff */
+    .shared-room-table.bluff-table-like-ninety {
+        min-height: 810px;
+    }
+
+    .bluff-table-like-ninety .bluff-center-zone {
+        top: 250px;
+        width: calc(100% - 18px);
+        transform: translateX(-50%);
+    }
+
+    .bluff-table-like-ninety .bluff-claim-card {
+        width: 100%;
+        padding: 10px 12px;
+    }
+
+    .bluff-table-like-ninety .bluff-reaction-row {
+        top: 415px;
+        width: calc(100% - 18px);
+    }
+
+    .bluff-table-like-ninety .bluff-reaction-row button {
+        min-height: 58px;
+        font-size: clamp(1.25rem, 7vw, 2rem);
+    }
+
+    .bluff-table-like-ninety .bluff-self-zone {
+        right: 4px;
+        bottom: 8px;
+        left: 4px;
+        width: auto;
+        transform: none;
+    }
+
+    .bluff-table-like-ninety .bluff-self-zone .bluff-hand {
+        min-height: 166px;
+        overflow-x: auto;
+        justify-content: flex-start;
+        padding: 26px 18px 8px;
+    }
+
+    .bluff-table-like-ninety .bluff-self-zone .bluff-card-button,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-playing-card {
+        flex: 0 0 var(--game-card-width);
+        width: var(--game-card-width);
+    }
+
+    /* Heart Attack */
+    .shared-room-table.heart-auto-table {
+        min-height: 760px;
+    }
+
+    .heart-auto-table .heart-center {
+        top: 315px;
+        grid-template-columns: minmax(138px, 48vw) minmax(66px, 22vw);
+        max-width: calc(100% - 24px);
+        transform: translateX(-50%);
+    }
+
+    .heart-auto-table .self-zone {
+        bottom: 20px;
+    }
+
+    .heart-auto-table .bottom-rule-note {
+        display: none;
+    }
+
+    .heart-auto-table .penalty-alert {
+        width: calc(100% - 18px);
+        max-height: calc(100% - 60px);
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    /* Pick red points */
+    .shared-room-table.red-dot-board {
+        min-height: 980px;
+        padding: 12px 8px max(14px, var(--game-safe-bottom));
+    }
+
+    .red-dot-center {
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    .red-dot-table-cards {
+        grid-template-columns: repeat(4, minmax(48px, 1fr));
+        gap: 6px;
+    }
+
+    .red-dot-self {
+        padding-inline: 4px;
+    }
+
+    .red-dot-hand {
+        justify-content: flex-start;
+        padding-inline: 16px;
+    }
+
+    .red-dot-hand .hand-card {
+        flex: 0 0 var(--game-card-width);
+    }
+
+    .red-dot-actions {
+        position: sticky;
+        bottom: var(--game-safe-bottom);
+        z-index: 12;
+        width: 100%;
+        padding: 8px;
+        background: rgba(8, 47, 192, .92);
+    }
+
+    /* Sevens: all thirteen columns fit the board; only the hand scrolls. */
+    .shared-room-table.sevens-table {
+        min-height: 900px !important;
+        padding: 12px 6px 230px !important;
+    }
+
+    .sevens-board {
+        width: 100% !important;
+        margin-top: 12px !important;
+        overflow: visible !important;
+    }
+
+    .sevens-row {
+        grid-template-columns: minmax(68px, 22vw) 22px minmax(0, 1fr) !important;
+        gap: 3px !important;
+    }
+
+    .sevens-player-chip {
+        min-width: 0 !important;
+        min-height: 54px !important;
+        grid-template-columns: 30px minmax(0, 1fr) !important;
+    }
+
+    .sevens-player-chip b {
+        font-size: .82rem !important;
+    }
+
+    .sevens-player-chip span {
+        overflow: hidden;
+        font-size: .72rem !important;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .sevens-player-chip em {
+        font-size: .58rem !important;
+    }
+
+    .sevens-suit {
+        font-size: 1.35rem !important;
+    }
+
+    .sevens-slot-track {
+        grid-template-columns: repeat(13, minmax(0, 1fr)) !important;
+        gap: 2px !important;
+        min-width: 0 !important;
+    }
+
+    .sevens-slot {
+        width: auto !important;
+        height: clamp(38px, 11vw, 54px) !important;
+        min-width: 0;
+        padding: 2px !important;
+        border-width: 2px !important;
+        font-size: clamp(.5rem, 2.6vw, .74rem) !important;
+    }
+
+    .sevens-turn-banner {
+        right: 6px !important;
+        bottom: 206px !important;
+        left: 6px !important;
+        min-width: 0;
+        white-space: normal !important;
+    }
+
+    .sevens-covered-pile {
+        right: 6px !important;
+        bottom: 92px !important;
+        width: 96px !important;
+        min-height: 92px !important;
+    }
+
+    .sevens-hand-zone {
+        right: 6px !important;
+        bottom: 6px !important;
+        left: 6px !important;
+        grid-template-columns: 62px minmax(0, 1fr) 68px !important;
+        gap: 4px !important;
+    }
+
+    .sevens-hand {
+        min-height: 138px !important;
+        padding-inline: 12px !important;
+    }
+
+    .sevens-hand-card {
+        flex: 0 0 var(--game-card-width) !important;
+        width: var(--game-card-width) !important;
+        height: calc(var(--game-card-width) * 1.52) !important;
+        margin-left: clamp(-20px, -5vw, -10px) !important;
+    }
+
+    .sevens-cover-button {
+        min-height: 58px !important;
+        font-size: .85rem !important;
+    }
+
+    /* Old Maid */
+    .shared-room-table.old-maid-shared-table {
+        min-height: 850px !important;
+    }
+
+    .old-maid-shared-table .old-maid-opening-stage,
+    .old-maid-shared-table .old-maid-draw-stage {
+        top: 300px !important;
+        width: calc(100% - 14px) !important;
+        max-height: 340px;
+        overflow-y: auto;
+        transform: translateX(-50%) !important;
+    }
+
+    .old-maid-shared-table .old-maid-self-area {
+        right: 6px !important;
+        bottom: 8px !important;
+        left: 6px !important;
+    }
+
+    .old-maid-shared-table .old-maid-hand {
+        justify-content: flex-start !important;
+        overflow-x: auto !important;
+        padding-inline: 16px;
+    }
+
+    .old-maid-shared-table .old-maid-card-face,
+    .old-maid-shared-table .old-maid-card-back {
+        flex: 0 0 var(--game-card-width);
+        width: var(--game-card-width) !important;
+        height: calc(var(--game-card-width) * 1.45) !important;
+    }
+}
+
+@media (max-width: 932px) and (orientation: landscape) {
+    .room-topbar {
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+    }
+
+    .room-topbar .bluff-logo {
+        min-width: 82px;
+    }
+
+    .room-topbar h1 {
+        font-size: clamp(1.5rem, 5vw, 2.4rem);
+    }
+
+    .room-topbar .bluff-meta,
+    .room-topbar .bluff-actions {
+        grid-column: auto;
+        display: flex;
+        width: auto;
+    }
+
+    .room-topbar .bluff-meta span,
+    .room-topbar .bluff-meta strong,
+    .room-topbar .bluff-actions a,
+    .room-topbar .bluff-actions button {
+        min-height: 42px;
+        padding: 5px 8px;
+        font-size: .76rem;
+    }
+
+    .room-topbar .bluff-meta span:first-child {
+        grid-column: auto;
+    }
+
+    .shared-room-table,
+    .shared-room-table.ninety-online-table,
+    .shared-room-table.heart-auto-table,
+    .shared-room-table.red-dot-board,
+    .shared-room-table.shared-big-two-table,
+    .shared-room-table.bluff-table-like-ninety,
+    .shared-room-table.old-maid-shared-table {
+        min-height: 650px;
+    }
+
+    .shared-room-table .room-opponent-seat.top {
+        top: 6px;
+        transform: translateX(-50%) scale(.54);
+    }
+
+    .shared-room-table .room-opponent-seat.left,
+    .shared-room-table .room-opponent-seat.right {
+        top: 105px;
+    }
+
+    .shared-room-table .room-opponent-seat.upper-left,
+    .shared-room-table .room-opponent-seat.upper-right {
+        top: 16px;
+    }
+
+    .shared-room-table .shared-big-two-center,
+    .bluff-table-like-ninety .bluff-center-zone,
+    .shared-room-table.ninety-online-table .ninety-center,
+    .heart-auto-table .heart-center {
+        top: 205px;
+    }
+
+    .shared-room-table.shared-big-two-table,
+    .shared-room-table.ninety-online-table,
+    .shared-room-table.bluff-table-like-ninety,
+    .shared-room-table.heart-auto-table,
+    .shared-room-table.old-maid-shared-table {
+        min-height: 680px;
+    }
+
+    .big-two-self-zone .big-two-hand,
+    .online-hand.fan-hand,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-hand,
+    .old-maid-shared-table .old-maid-hand {
+        min-height: 142px;
+    }
+
+    .bluff-table-like-ninety .bluff-reaction-row {
+        top: 330px;
+    }
+
+    .old-maid-shared-table .old-maid-opening-stage,
+    .old-maid-shared-table .old-maid-draw-stage {
+        top: 230px !important;
+        max-height: 250px;
+    }
+
+    .shared-room-controls,
+    .big-two-shared-controls,
+    .ninety-command-bar,
+    .bluff-table-controls {
+        position: sticky;
+        bottom: 0;
+    }
+}
+
+@media (max-width: 350px) {
+    .room-topbar .bluff-meta span,
+    .room-topbar .bluff-meta strong,
+    .room-topbar .bluff-actions a,
+    .room-topbar .bluff-actions button {
+        font-size: .75rem;
+    }
+
+    .shared-room-table .room-opponent-seat.left,
+    .shared-room-table .room-opponent-seat.right {
+        transform: scale(.49);
+    }
+
+    .sevens-row {
+        grid-template-columns: 64px 18px minmax(0, 1fr) !important;
+    }
+}
+
+/* Final overlap guards for compact game tables. */
+.bluff-table-controls {
+    position: relative !important;
+    bottom: auto !important;
+}
+
+@media (max-width: 767px) {
+    .shared-room-table.ninety-online-table .turn-callout.online {
+        align-self: center;
+        width: min(300px, calc(100% - 16px));
+        max-width: none;
+        margin-inline: auto;
+        text-align: center;
+        transform: none;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-center {
+        margin-top: 260px;
+    }
+
+    .shared-room-table.sevens-table {
+        min-height: 960px !important;
+        padding-bottom: 300px !important;
+    }
+
+    .sevens-turn-banner {
+        bottom: 360px !important;
+    }
+
+    .sevens-covered-pile {
+        bottom: 195px !important;
+    }
+
+    .bluff-table-controls {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        width: calc(100% - 8px);
+        min-height: 0;
+        margin: 10px auto 0;
+        padding: 10px 10px max(10px, var(--game-safe-bottom));
+    }
+
+    .bluff-table-controls .bluff-stepper,
+    .bluff-table-controls .bluff-play-button {
+        width: 100%;
+        min-height: 58px;
+    }
+
+    .bluff-table-controls .bluff-stepper {
+        flex-basis: auto;
+    }
+
+    .bluff-table-controls .bluff-stepper > div {
+        min-height: 62px;
+    }
+
+    .heart-auto-table .heart-center {
+        top: 280px;
+    }
+
+    .heart-auto-table .self-zone {
+        bottom: 8px;
+    }
+
+    .old-maid-shared-table .old-maid-opening-stage,
+    .old-maid-shared-table .old-maid-draw-stage {
+        top: 220px !important;
+    }
+
+    .old-maid-shared-table .old-maid-self-area {
+        bottom: 4px !important;
+    }
+}
+
+@media (max-width: 932px) and (orientation: landscape) {
+    .bluff-table-controls {
+        position: relative !important;
+        bottom: auto !important;
+    }
+}
