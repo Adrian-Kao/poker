@@ -3,3 +3,4 @@ export const PICK_RED_MAX_PLAYERS = 4;
 export const TARGET_SELECTION_MS = 12_000;
 export const PICK_RED_TURN_DURATION_MS = 30_000;
 export const PICK_RED_RECONNECT_WINDOW_SECONDS = 60;
+export const BLACK_HAND_REVEAL_MS = 3_000;

@@ -1,7 +1,7 @@
 import type { Card } from "../core/cards";
 
 export type BotDifficulty = "easy" | "normal" | "hard";
-export type PickRedPointsPhase = "waiting" | "playing-hand" | "selecting-hand-target" | "drawing" | "selecting-draw-target" | "turn-result" | "finished";
+export type PickRedPointsPhase = "waiting" | "black-hand-decision" | "black-hand-reveal" | "playing-hand" | "selecting-hand-target" | "drawing" | "selecting-draw-target" | "turn-result" | "finished";
 
 export interface PickRedPointsPlayer {
   id: string;
@@ -38,6 +38,10 @@ export interface PickRedPointsState {
   winners: string[];
   processedActionIds: string[];
   lastResult: string;
+  blackHandEligiblePlayerIds: string[];
+  blackHandPendingPlayerIds: string[];
+  revealedBlackHandPlayerId: string | null;
+  revealedBlackHandCards: Card[];
 }
 
 export type CreatePickRedPointsPlayerInput = { id: string; nickname: string; type?: "human" | "bot"; botDifficulty?: BotDifficulty; connected?: boolean };

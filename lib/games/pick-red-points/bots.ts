@@ -1,6 +1,7 @@
 import { getMatchingTableCards, playPickRedHandCard, selectPickRedCaptureTarget } from "./engine";
 import type { BotDifficulty, PickRedPointsState } from "./types";
 
+/** 依目前階段與難度替指定電腦玩家選擇合法動作，並回傳動作後的新狀態。 */
 export function choosePickRedBotAction(state: PickRedPointsState, playerId: string, difficulty: BotDifficulty = "normal", now = Date.now()): PickRedPointsState {
   const hand = state.hands[playerId] ?? [];
   if (state.phase === "selecting-hand-target" || state.phase === "selecting-draw-target") {

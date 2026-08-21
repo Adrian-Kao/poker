@@ -75,6 +75,8 @@ export default function RedDotPage() {
   const targetIds = new Set((state?.legalTargetIds ?? "").split(",").filter(Boolean));
   const isMyTurn = state?.currentPlayerId === ownId;
   const selectedCard = hand.find((card) => card.id === selectedId);
+  const blackHandPendingIds = new Set((state?.blackHandPendingPlayerIds ?? "").split(",").filter(Boolean));
+  const canDecideBlackHand = phase === "black-hand-decision" && blackHandPendingIds.has(ownId);
   const countdown = Math.max(0, Math.ceil(((state?.targetDeadline || state?.turnDeadline || 0) - Date.now()) / 1000));
 
   function send(type: string, data: Record<string, unknown> = {}) { roomRef.current?.send(type, { type, actionId: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, ...data }); }
@@ -88,6 +90,8 @@ export default function RedDotPage() {
     <main className="red-dot-page">
       <RedDotHeader roomCode={roomCode} round={state?.round ?? 1} onLeave={leaveRoom} />
       <section className="red-dot-board" aria-label="撿紅點牌桌">
+        {phase === "black-hand-decision" && <div className="red-dot-status"><strong>{canDecideBlackHand ? "你的手牌全黑" : "等待全黑手牌玩家決定"}</strong><span>{canDecideBlackHand ? "你可以保留手牌，或展示手牌並要求重新洗牌。" : message}</span>{canDecideBlackHand && <div><button type="button" onClick={() => send("KEEP_BLACK_HAND")}>保留手牌</button><button type="button" onClick={() => send("RESHUFFLE_BLACK_HAND")}>展示並重洗</button></div>}</div>}
+        {phase === "black-hand-reveal" && <div className="red-dot-status"><strong>{players.find((player) => player.id === state?.revealedBlackHandPlayerId)?.nickname ?? "玩家"} 展示全黑手牌</strong><div className="red-dot-table-cards">{Array.from(state?.revealedBlackHandCards ?? []).map((card) => <div className="red-card table-card" key={card.id}>{cardContent(card.rank as Rank, card.suit as Suit)}</div>)}</div><span>即將重新洗牌並發牌</span></div>}
         <div className="red-dot-opponent red-top"><OpponentCard player={players.find((player) => player.seat === 1)} current={state?.currentPlayerId === players.find((player) => player.seat === 1)?.id} /></div>
         <div className="red-dot-opponent red-left"><OpponentCard player={players.find((player) => player.seat === 2)} current={state?.currentPlayerId === players.find((player) => player.seat === 2)?.id} /></div>
         <div className="red-dot-opponent red-right"><OpponentCard player={players.find((player) => player.seat === 3)} current={state?.currentPlayerId === players.find((player) => player.seat === 3)?.id} /></div>
