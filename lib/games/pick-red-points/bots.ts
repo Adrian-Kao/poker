@@ -20,11 +20,14 @@ export function chooseBestPickRedHandCard(state: PickRedPointsState, playerId: s
   if (!hand.length) throw new Error("CARD_NOT_IN_HAND");
   const forcedBlackFive = getForcedBlackFive(state, playerId, hand);
   if (forcedBlackFive) return forcedBlackFive;
+  const lockedPairReleaseCard = getLockedPairReleaseCard(state, hand);
+  const shouldProtectSingleRedFive = hasCapturedBothBlackFives(state) && hand.filter((card) => card.rank === "5" && isRed(card)).length === 1;
 
   const candidates = hand.map((card, handIndex) => {
     const targets = getMatchingTableCards(card, state.tableCards);
     const bestGain = targets.reduce((gain, target) => Math.max(gain, getPickRedCaptureGain(state, playerId, card, target.card)), 0);
-    return { card, handIndex, bestGain, discardPriority: getNoScoreDiscardPriority(state, card) };
+    const discardPriority = card.id === lockedPairReleaseCard?.id ? -2 : shouldProtectSingleRedFive && card.rank === "5" && isRed(card) ? 17 : getNoScoreDiscardPriority(state, card);
+    return { card, handIndex, bestGain, discardPriority };
   });
   const hasScoringCapture = candidates.some((candidate) => candidate.bestGain > 0);
   return candidates.sort((left, right) => hasScoringCapture
@@ -47,6 +50,41 @@ function getForcedBlackFive(state: PickRedPointsState, playerId: string, hand: C
   const redFive = hand.some((card) => card.rank === "5" && isRed(card));
   const blackFive = hand.find((card) => card.rank === "5" && !isRed(card) && state.tableCards.some((target) => target.card.rank === "5" && !isRed(target.card)));
   return redFive ? blackFive : undefined;
+}
+
+function getLockedPairReleaseCard(state: PickRedPointsState, hand: Card[]): Card | undefined {
+  const appeared = [...state.tableCards.map((item) => item.card), ...Object.values(state.capturedCards).flat()];
+  for (let firstIndex = 0; firstIndex < hand.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < hand.length; secondIndex += 1) {
+      const first = hand[firstIndex];
+      const second = hand[secondIndex];
+      if (!isPair(first, second)) continue;
+      const relevantRanks = getPairRankGroup(first.rank);
+      const ownRelevant = hand.filter((card) => relevantRanks.includes(card.rank));
+      const appearedRelevant = appeared.filter((card) => relevantRanks.includes(card.rank));
+      const totalCardsInGroup = relevantRanks.length * 4;
+      if (ownRelevant.length === 2 && ownRelevant.includes(first) && ownRelevant.includes(second) && ownRelevant.length + appearedRelevant.length === totalCardsInGroup) return first;
+    }
+  }
+  return undefined;
+}
+
+function getPairRankGroup(rank: Rank): Rank[] {
+  const complements: Partial<Record<Rank, Rank>> = { A: "9", "9": "A", "2": "8", "8": "2", "3": "7", "7": "3", "4": "6", "6": "4", "5": "5" };
+  const complement = complements[rank];
+  return complement && complement !== rank ? [rank, complement] : [rank];
+}
+
+function isPair(first: Card, second: Card) {
+  const faces: Rank[] = ["10", "J", "Q", "K"];
+  if (faces.includes(first.rank) || faces.includes(second.rank)) return first.rank === second.rank;
+  const value = (rank: Rank) => rank === "A" ? 1 : Number(rank);
+  return value(first.rank) + value(second.rank) === 10;
+}
+
+function hasCapturedBothBlackFives(state: PickRedPointsState) {
+  const captured = Object.values(state.capturedCards).flat();
+  return captured.some((card) => card.rank === "5" && card.suit === "clubs") && captured.some((card) => card.rank === "5" && card.suit === "spades");
 }
 
 function getNoScoreDiscardPriority(state: PickRedPointsState, card: Card): number {

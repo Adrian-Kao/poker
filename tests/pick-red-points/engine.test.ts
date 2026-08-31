@@ -35,12 +35,24 @@ test("requires selecting one target and captures exactly one table card", () => 
   const selected = playPickRedHandCard(custom, "p1", "hand-3", 100, "play-1");
   assert.equal(selected.phase, "selecting-hand-target");
   assert.equal(selected.legalTargetIds.length, 2);
+  assert.equal(selected.hands.p1.some((handCard) => handCard.id === "hand-3"), true);
   assert.equal(selected.drawPile.length, custom.drawPile.length);
   const captured = selectPickRedCaptureTarget(selected, "p1", "table-7a", "hand", 200, "target-1");
   assert.equal(captured.capturedCards.p1.length, 2);
   assert.equal(captured.tableCards.length, 1);
   assert.equal(captured.phase, "drawing");
+  assert.equal(captured.hands.p1.some((handCard) => handCard.id === "hand-3"), false);
   assert.equal(captured.drawPile.length, custom.drawPile.length);
+});
+
+test("automatically captures when a played hand card has exactly one target", () => {
+  const state = createPickRedPointsGame({ players, random: () => 0.2 });
+  const custom = { ...state, phase: "playing-hand" as const, hands: { ...state.hands, p1: [card("hand-5", "5", "hearts")] }, tableCards: [{ card: card("table-5", "5", "clubs"), enteredAtTurn: 0, tableOrder: 0 }], currentPlayerId: "p1" as string };
+  const captured = playPickRedHandCard(custom, "p1", "hand-5", 100, "single-target");
+  assert.equal(captured.phase, "drawing");
+  assert.equal(captured.pendingCard, null);
+  assert.equal(captured.hands.p1.length, 0);
+  assert.deepEqual(captured.capturedCards.p1.map((capturedCard) => capturedCard.id), ["hand-5", "table-5"]);
 });
 
 test("does not reveal the draw-pile card until the hand card has finished resolving", () => {
@@ -86,6 +98,22 @@ test("bot and timeout target selection prefer the greatest actual score gain", (
   assert.equal(chooseBestPickRedTarget(custom, "p1")?.card.id, "red-9");
   const resolved = advancePickRedPoints(custom, 100);
   assert.equal(resolved.capturedCards.p1.some((captured) => captured.id === "red-9"), true);
+});
+
+test("bot releases one card when the only remaining pair is entirely in its hand", () => {
+  const state = createPickRedPointsGame({ players, random: () => 0.2 });
+  const appeared = [card("c2", "2", "clubs"), card("d2", "2", "diamonds"), card("s2", "2", "spades"), card("c8", "8", "clubs"), card("d8", "8", "diamonds"), card("s8", "8", "spades")];
+  const custom = { ...state, phase: "playing-hand" as const, currentPlayerId: "p1" as string, hands: { ...state.hands, p1: [card("last-2", "2", "hearts"), card("last-8", "8", "hearts"), card("black-7", "7", "clubs")] }, tableCards: [], capturedCards: { ...state.capturedCards, p2: appeared } };
+  assert.equal(chooseBestPickRedHandCard(custom, "p1").id, "last-2");
+});
+
+test("after both black fives are captured bot protects one red five but releases one of two", () => {
+  const state = createPickRedPointsGame({ players: [...players, { id: "p3", nickname: "三" }, { id: "p4", nickname: "四" }], random: () => 0.2 });
+  const blackFives = [card("club-5", "5", "clubs"), card("spade-5", "5", "spades")];
+  const single = { ...state, phase: "playing-hand" as const, currentPlayerId: "p1" as string, hands: { ...state.hands, p1: [card("single-red-5", "5", "hearts"), card("red-a", "A", "hearts")] }, tableCards: [], capturedCards: { ...state.capturedCards, p2: blackFives } };
+  assert.equal(chooseBestPickRedHandCard(single, "p1").id, "red-a");
+  const double = { ...single, hands: { ...single.hands, p1: [card("heart-5", "5", "hearts"), card("diamond-5", "5", "diamonds"), card("black-8", "8", "clubs")] } };
+  assert.equal(chooseBestPickRedHandCard(double, "p1").id, "heart-5");
 });
 
 test("two-player and three-player games score only red cards", () => {

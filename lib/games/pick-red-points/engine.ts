@@ -65,8 +65,9 @@ export function playPickRedHandCard(state: PickRedPointsState, playerId: string,
   const card = state.hands[playerId]?.find((item) => item.id === cardId);
   if (!card) throw new Error("CARD_NOT_IN_HAND");
   const legalTargets = getMatchingTableCards(card, state.tableCards);
-  const next = markAction({ ...state, hands: { ...state.hands, [playerId]: state.hands[playerId].filter((item) => item.id !== cardId) }, pendingCard: { card, source: "hand", ownerPlayerId: playerId }, legalTargetIds: legalTargets.map((item) => item.card.id), targetDeadline: legalTargets.length ? now + TARGET_SELECTION_MS : null, phase: legalTargets.length ? "selecting-hand-target" : "drawing", lastResult: legalTargets.length ? "請選擇一張桌牌配對" : `${card.rank} 沒有可配對的牌，將留在桌上` }, actionId);
-  return legalTargets.length ? next : placePickRedCardOnTable(next, playerId);
+  const next = markAction({ ...state, pendingCard: { card, source: "hand", ownerPlayerId: playerId }, legalTargetIds: legalTargets.map((item) => item.card.id), targetDeadline: legalTargets.length > 1 ? now + TARGET_SELECTION_MS : null, phase: legalTargets.length > 1 ? "selecting-hand-target" : "drawing", lastResult: legalTargets.length > 1 ? "請選擇一張桌牌配對" : legalTargets.length === 1 ? "自動配對唯一可選的桌牌" : `${card.rank} 沒有可配對的牌，將留在桌上` }, actionId);
+  if (legalTargets.length === 1) return capturePickRedPair(next, playerId, legalTargets[0].card.id, now);
+  return legalTargets.length > 1 ? next : placePickRedCardOnTable(next, playerId);
 }
 
 /** 驗證玩家選擇的桌牌目標，並完成該次合法配對。 */
@@ -107,7 +108,8 @@ export function capturePickRedPair(state: PickRedPointsState, playerId: string, 
   const capturedCards = { ...state.capturedCards, [playerId]: [...state.capturedCards[playerId], pending.card, target.card] };
   const scores = calculatePickRedScores(capturedCards, state.players.map((player) => player.id));
   const scoreChange = scores[playerId] - (state.scores[playerId] ?? 0);
-  const next = { ...state, phase: pending.source === "hand" ? "drawing" as const : "turn-result" as const, tableCards: state.tableCards.filter((item) => item.card.id !== targetCardId), capturedCards, scores, pendingCard: null, legalTargetIds: [], targetDeadline: null, lastResult: `撿到${pending.card.rank}與${target.card.rank}，${scoreChange >= 0 ? "+" : ""}${scoreChange}分` };
+  const hands = pending.source === "hand" ? { ...state.hands, [playerId]: state.hands[playerId].filter((card) => card.id !== pending.card.id) } : state.hands;
+  const next = { ...state, hands, phase: pending.source === "hand" ? "drawing" as const : "turn-result" as const, tableCards: state.tableCards.filter((item) => item.card.id !== targetCardId), capturedCards, scores, pendingCard: null, legalTargetIds: [], targetDeadline: null, lastResult: `撿到${pending.card.rank}與${target.card.rank}，${scoreChange >= 0 ? "+" : ""}${scoreChange}分` };
   return pending.source === "hand" ? next : finishPickRedTurn(next);
 }
 
@@ -116,7 +118,8 @@ export function placePickRedCardOnTable(state: PickRedPointsState, playerId: str
   const pending = state.pendingCard;
   if (!pending || pending.ownerPlayerId !== playerId) throw new Error("TARGET_SELECTION_REQUIRED");
   const tableCard: TableCard = { card: pending.card, enteredAtTurn: state.turnNumber, tableOrder: state.tableCards.length ? Math.max(...state.tableCards.map((item) => item.tableOrder)) + 1 : 0 };
-  return { ...state, phase: "drawing", tableCards: [...state.tableCards, tableCard], pendingCard: null, legalTargetIds: [], targetDeadline: null, lastResult: "牌已放到桌面" };
+  const hands = pending.source === "hand" ? { ...state.hands, [playerId]: state.hands[playerId].filter((card) => card.id !== pending.card.id) } : state.hands;
+  return { ...state, hands, phase: "drawing", tableCards: [...state.tableCards, tableCard], pendingCard: null, legalTargetIds: [], targetDeadline: null, lastResult: "牌已放到桌面" };
 }
 
 /** 選牌逾時時，自動選擇分數最高、同分時最早進桌的合法目標。 */
