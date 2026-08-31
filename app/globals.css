@@ -509,10 +509,15 @@ a {
     grid-row: 2;
     display: grid;
     grid-template-columns: repeat(4, minmax(75px, 112px));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
     justify-content: center;
     gap: 12px;
-    align-content: center;
+    align-content: start;
+    height: clamp(230px, 28vw, 290px);
     min-width: 0;
+    overflow: auto;
+    padding: 8px;
+    scrollbar-gutter: stable;
 }
 
 .red-card {
@@ -625,6 +630,78 @@ a {
     min-width: 0;
     padding: 12px 22px;
     border-top: 3px solid rgba(255, 255, 255, .35);
+}
+
+.red-dot-self-info {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+
+.red-dot-captured {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    padding: 9px;
+    border: 3px solid var(--ink);
+    border-radius: 12px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 4px 4px 0 var(--ink);
+}
+
+.red-dot-captured > strong {
+    font-size: .9rem;
+}
+
+.red-dot-captured-row {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+}
+
+.red-dot-captured-row > span {
+    font-size: .72rem;
+    font-weight: 950;
+}
+
+.red-dot-captured-row > div {
+    display: flex;
+    gap: 3px;
+    min-height: 38px;
+    overflow-x: auto;
+    padding: 2px 3px 5px;
+}
+
+.red-dot-captured-card {
+    flex: 0 0 29px;
+    display: grid;
+    place-items: center;
+    height: 38px;
+    border: 2px solid var(--ink);
+    border-radius: 5px;
+    background: white;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: normal;
+    font-weight: 950;
+    line-height: .85;
+}
+
+.red-dot-captured-card span,
+.red-dot-captured-card em {
+    display: block;
+    font-size: .7rem;
+    font-style: normal;
+}
+
+.red-dot-captured-card.red-suit {
+    color: #d43e32;
+}
+
+.red-dot-captured-card.black-suit {
+    color: var(--ink);
 }
 
 .self-info {
@@ -782,6 +859,7 @@ a {
         grid-column: 1 / -1;
         grid-row: 2;
         grid-template-columns: repeat(4, minmax(56px, 78px));
+        height: 210px;
     }
     .red-pile {
         grid-column: 1 / -1;
@@ -794,6 +872,10 @@ a {
     .red-dot-self {
         width: 100%;
         padding: 12px 0;
+    }
+    .red-dot-self-info {
+        width: min(100%, 360px);
+        justify-self: center;
     }
     .red-dot-hand {
         justify-content: flex-start;
