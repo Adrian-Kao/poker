@@ -89,7 +89,7 @@ export function RoomOpponentSeat({ player, position, active = false, passed = fa
     <article className={`bluff-opponent-seat room-opponent-seat ${position} ${active ? "active" : ""} ${player.status === "finished" ? "finished" : ""}`}>
       <div className="bluff-player-badge">
         <div className="bluff-avatar">{player.nickname.trim().slice(0, 1) || "玩"}</div>
-        <div><strong>{player.nickname}</strong><span>{count} 張牌{typeof player.capturedCount === "number" ? `　吃 ${player.capturedCount} 張` : ""}{typeof player.score === "number" ? `　${player.score} 分` : ""}</span></div>
+        <div><strong style={{ fontSize: playerNameFontSize(player.nickname) }}>{player.nickname}</strong><span>{count} 張牌{typeof player.capturedCount === "number" ? `　吃 ${player.capturedCount} 張` : ""}{typeof player.score === "number" ? `　${player.score} 分` : ""}</span></div>
         <em>{player.type === "bot" ? "電腦" : player.connected === false ? "重新連線中" : "真人"}</em>
       </div>
       <RoomCardBacks count={count} />
@@ -100,16 +100,25 @@ export function RoomOpponentSeat({ player, position, active = false, passed = fa
 }
 
 export function RoomCardBacks({ count, max = 5 }: { count: number; max?: number }) {
-  return <div className="bluff-card-back-stack room-card-backs" aria-hidden="true">{Array.from({ length: Math.min(max, Math.max(1, count)) }).map((_, index) => <i key={index} />)}</div>;
+  if (count <= 0) return null;
+  return <div className="bluff-card-back-stack room-card-backs" aria-hidden="true">{Array.from({ length: Math.min(max, count) }).map((_, index) => <i key={index} />)}</div>;
 }
 
 export function RoomSelfBadge({ nickname, active = false, count, capturedCount, score }: { nickname: string; active?: boolean; count?: number; capturedCount?: number; score?: number }) {
   return (
     <div className={`bluff-self-badge room-self-badge ${active ? "active" : ""}`}>
       <div className="bluff-avatar yellow">{nickname.trim().slice(0, 1) || "你"}</div>
-      <div><span>你的手牌</span><strong>{nickname}</strong>{typeof count === "number" ? <em>{count} 張牌{typeof capturedCount === "number" ? `　吃 ${capturedCount} 張` : ""}{typeof score === "number" ? `　${score} 分` : ""}</em> : null}</div>
+      <div><span>你的手牌</span><strong style={{ fontSize: playerNameFontSize(nickname) }}>{nickname}</strong>{typeof count === "number" ? <em>{count} 張牌{typeof capturedCount === "number" ? `　吃 ${capturedCount} 張` : ""}{typeof score === "number" ? `　${score} 分` : ""}</em> : null}</div>
     </div>
   );
+}
+
+function playerNameFontSize(nickname: string) {
+  const length = Array.from(nickname.trim()).length;
+  if (length <= 5) return "1.35rem";
+  if (length <= 8) return "1.1rem";
+  if (length <= 12) return ".92rem";
+  return ".78rem";
 }
 
 export type UnifiedConnectionStatus = RoomConnectionStatus;

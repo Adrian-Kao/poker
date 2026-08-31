@@ -82,11 +82,12 @@ export default function RedDotPage() {
   const isHost = own?.host ?? false;
   const phase = (state?.phase ?? "waiting") as PickRedPointsPhase;
   const currentPlayer = players.find((player) => player.id === state?.currentPlayerId);
+  const tableCards = Array.from(state?.tableCards ?? []);
   const targetIds = new Set((state?.legalTargetIds ?? "").split(",").filter(Boolean));
   const isMyTurn = state?.currentPlayerId === ownId;
   const selectedCard = hand.find((card) => card.id === selectedId);
   const drawnCard = phase === "revealing-draw" || phase === "selecting-draw-target" ? state?.pendingCard : null;
-  const activeDeadline = state?.targetDeadline || state?.turnDeadline || 0;
+  const activeDeadline = phase === "finished" ? 0 : state?.targetDeadline || state?.turnDeadline || 0;
   const countdown = activeDeadline ? Math.max(0, Math.ceil((activeDeadline - clockNow) / 1000)) : 0;
 
   function send(type: string, data: Record<string, unknown> = {}) { roomRef.current?.send(type, { type, actionId: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, ...data }); }
@@ -121,10 +122,9 @@ export default function RedDotPage() {
         <OpponentCard player={players.find((player) => player.seat === 3)} position="right" current={state?.currentPlayerId === players.find((player) => player.seat === 3)?.id} />
 
         <div className="red-dot-center">
-          <div className="red-score-box"><span>目前</span><strong>{own?.score ?? 0}</strong><em>分</em></div>
           <div className="red-dot-status" aria-live="polite"><strong>{isMyTurn ? "輪到你了" : `等待 ${currentPlayer?.nickname ?? "玩家"}`}</strong><span>{message}</span></div>
-          <div className="red-dot-table-cards" aria-label="桌面牌">
-            {Array.from(state?.tableCards ?? []).map((tableCard) => <button className={`red-card table-card ${cardColorClass(tableCard.suit as Suit)} ${targetIds.has(tableCard.id) ? "target" : ""}`} key={tableCard.id} type="button" onClick={() => chooseTarget(tableCard.id)} aria-label={`${labels[tableCard.suit as Suit]}${tableCard.rank}桌牌`}>{cardContent(tableCard.rank as Rank, tableCard.suit as Suit)}</button>)}
+          <div className={`red-dot-table-cards ${tableCards.length > 8 ? "overflowing" : ""}`} aria-label="桌面牌">
+            {tableCards.map((tableCard) => <button className={`red-card table-card ${cardColorClass(tableCard.suit as Suit)} ${targetIds.has(tableCard.id) ? "target" : ""}`} key={tableCard.id} type="button" onClick={() => chooseTarget(tableCard.id)} aria-label={`${labels[tableCard.suit as Suit]}${tableCard.rank}桌牌`}>{cardContent(tableCard.rank as Rank, tableCard.suit as Suit)}</button>)}
           </div>
           <div className="red-pile">
             {drawnCard && drawnCard.id ? <div className={`red-card red-drawn-card ${cardColorClass(drawnCard.suit as Suit)}`} aria-label={`翻出${labels[drawnCard.suit as Suit]}${drawnCard.rank}`}>{cardContent(drawnCard.rank as Rank, drawnCard.suit as Suit)}</div> : <div className="red-card-back">鬥陣</div>}

@@ -515,9 +515,12 @@ a {
     align-content: start;
     height: clamp(230px, 28vw, 290px);
     min-width: 0;
-    overflow: auto;
+    overflow: hidden;
     padding: 8px;
-    scrollbar-gutter: stable;
+}
+
+.red-dot-table-cards.overflowing {
+    overflow: auto;
 }
 
 .red-card {
@@ -8504,6 +8507,246 @@ body {
 
     .sevens-row {
         grid-template-columns: 64px 18px minmax(0, 1fr) !important;
+    }
+}
+
+/* Pick red points: stable card geometry and compact player information. */
+.shared-room-table.red-dot-board {
+    --red-dot-card-width: clamp(76px, 7vw, 112px);
+    --red-dot-card-height: 156px;
+}
+
+.shared-room-table.red-dot-board .room-opponent-seat .bluff-player-badge,
+.shared-room-table.red-dot-board .room-self-badge {
+    color: var(--ink);
+}
+
+.shared-room-table.red-dot-board .room-opponent-seat .bluff-player-badge > div:nth-child(2),
+.shared-room-table.red-dot-board .room-self-badge > div:nth-child(2) {
+    min-width: 0;
+}
+
+.shared-room-table.red-dot-board .room-opponent-seat .bluff-player-badge strong,
+.shared-room-table.red-dot-board .room-self-badge strong {
+    display: block;
+    max-width: 100%;
+    overflow: visible;
+    color: var(--ink);
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+}
+
+.shared-room-table.red-dot-board .room-opponent-seat .bluff-player-badge span,
+.shared-room-table.red-dot-board .room-self-badge em {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    color: white;
+    font-size: clamp(.7rem, 1.1vw, .9rem);
+    line-height: 1.25;
+    overflow-wrap: normal;
+    white-space: nowrap;
+}
+
+.shared-room-table.red-dot-board .room-opponent-seat .bluff-player-badge span {
+    width: 100%;
+    box-sizing: border-box;
+    padding-inline: 6px;
+    font-size: clamp(.62rem, .85vw, .78rem);
+}
+
+.shared-room-table.red-dot-board .room-opponent-seat .bluff-player-badge {
+    width: 330px;
+    height: 112px;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    box-sizing: border-box;
+}
+
+.shared-room-table.red-dot-board .room-self-badge {
+    width: 100%;
+    min-height: 112px;
+    box-sizing: border-box;
+}
+
+.shared-room-table.red-dot-board .room-self-badge em {
+    width: fit-content;
+    padding: 4px 9px;
+    border-radius: 7px;
+    background: var(--blue);
+}
+
+.shared-room-table.red-dot-board .red-dot-center {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 180px);
+    grid-template-rows: auto 368px auto;
+}
+
+.shared-room-table.red-dot-board .red-dot-status,
+.shared-room-table.red-dot-board .red-dot-table-cards,
+.shared-room-table.red-dot-board .red-equation {
+    grid-column: 1;
+}
+
+.shared-room-table.red-dot-board .red-dot-status,
+.shared-room-table.red-dot-board .red-equation {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(100%, 620px);
+}
+
+.shared-room-table.red-dot-board .red-dot-status {
+    grid-row: 1;
+}
+
+.shared-room-table.red-dot-board .red-dot-table-cards {
+    grid-row: 2;
+    grid-template-columns: repeat(4, var(--red-dot-card-width));
+    grid-template-rows: repeat(2, var(--red-dot-card-height));
+    height: 368px;
+    align-content: start;
+    padding: 18px 20px 22px;
+}
+
+.shared-room-table.red-dot-board .red-pile {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.shared-room-table.red-dot-board .red-equation {
+    grid-row: 3;
+}
+
+.shared-room-table.red-dot-board .table-card,
+.shared-room-table.red-dot-board .red-pile .red-card-back,
+.shared-room-table.red-dot-board .red-pile .red-drawn-card {
+    width: var(--red-dot-card-width);
+    height: var(--red-dot-card-height);
+    aspect-ratio: auto;
+    box-sizing: border-box;
+}
+
+.shared-room-table.red-dot-board .red-pile .red-drawn-card {
+    padding: 12px;
+}
+
+@media (min-width: 1300px) {
+    .shared-room-table.red-dot-board {
+        grid-template-columns: 350px minmax(520px, 1fr) 350px;
+        grid-template-rows: 220px minmax(360px, 1fr) minmax(270px, auto) 90px;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-center {
+        width: min(780px, 100%);
+        justify-self: center;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-self {
+        grid-template-columns: 380px minmax(0, 1fr);
+    }
+
+    .shared-room-table.red-dot-board .room-opponent-seat.left {
+        left: 18px;
+    }
+
+    .shared-room-table.red-dot-board .room-opponent-seat.right {
+        right: 18px;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1299px) {
+    .shared-room-table.red-dot-board {
+        --red-dot-card-width: clamp(68px, 9vw, 92px);
+        --red-dot-card-height: 128px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto auto;
+        min-height: 940px;
+        padding: 18px 14px;
+    }
+
+    .shared-room-table.red-dot-board .room-opponent-seat.top {
+        top: 12px;
+    }
+
+    .shared-room-table.red-dot-board .room-opponent-seat.left,
+    .shared-room-table.red-dot-board .room-opponent-seat.right {
+        top: 145px;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-center {
+        grid-area: auto;
+        width: min(720px, 100%);
+        margin: 340px auto 0;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-table-cards {
+        grid-template-rows: repeat(2, var(--red-dot-card-height));
+        height: 308px;
+        padding: 16px 14px 20px;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-self {
+        grid-area: auto;
+        grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+    }
+
+    .shared-room-table.red-dot-board .red-dot-actions {
+        grid-area: auto;
+        position: sticky;
+        bottom: max(0px, var(--game-safe-bottom));
+        z-index: 12;
+        width: 100%;
+        padding: 8px;
+        background: rgba(8, 47, 192, .94);
+    }
+}
+
+@media (max-width: 767px) {
+    .shared-room-table.red-dot-board {
+        --red-dot-card-width: clamp(50px, 18vw, 72px);
+        --red-dot-card-height: 100px;
+        min-height: 1040px;
+    }
+
+    .shared-room-table.red-dot-board .room-opponent-seat .bluff-player-badge {
+        width: 230px;
+        height: 104px;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-center {
+        grid-template-columns: minmax(0, 1fr) minmax(82px, 24vw);
+        grid-template-rows: auto 240px auto;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-table-cards {
+        grid-template-columns: repeat(4, var(--red-dot-card-width));
+        grid-template-rows: repeat(2, var(--red-dot-card-height));
+        height: 240px;
+        padding: 12px 8px 16px;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-self-info {
+        width: min(100%, 390px);
+    }
+
+    .shared-room-table.red-dot-board .red-dot-actions {
+        flex-wrap: nowrap;
+    }
+
+    .shared-room-table.red-dot-board .red-countdown {
+        flex: 0 0 auto;
+        min-height: 48px;
+        padding: 8px 10px;
+    }
+
+    .shared-room-table.red-dot-board .red-confirm {
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 54px;
+        padding: 9px 14px;
+        font-size: clamp(1rem, 5vw, 1.3rem);
     }
 }
 

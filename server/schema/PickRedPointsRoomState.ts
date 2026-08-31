@@ -21,7 +21,7 @@ export function syncPickRedPublicState(schema: PickRedPointsRoomStateSchema, sta
   schema.currentPlayerId = state?.currentPlayerId ?? "";
   schema.round = state?.roundNumber ?? 1;
   schema.turnNumber = state?.turnNumber ?? 0;
-  schema.turnDeadline = turnDeadline;
+  schema.turnDeadline = state?.phase === "finished" ? 0 : turnDeadline;
   schema.targetDeadline = state?.targetDeadline ?? 0;
   schema.legalTargetIds = state?.legalTargetIds.join(",") ?? "";
   schema.drawPileCount = state?.drawPile.length ?? 0;
