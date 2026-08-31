@@ -122,9 +122,17 @@ export function placePickRedCardOnTable(state: PickRedPointsState, playerId: str
 /** 選牌逾時時，自動選擇分數最高、同分時最早進桌的合法目標。 */
 export function resolvePickRedTargetTimeout(state: PickRedPointsState, now = Date.now()): PickRedPointsState {
   if (!state.pendingCard || !state.targetDeadline || now < state.targetDeadline) return state;
-  const target = state.tableCards.filter((item) => state.legalTargetIds.includes(item.card.id)).sort((left, right) => calculatePickRedCardScore(right.card, state.players.length) - calculatePickRedCardScore(left.card, state.players.length) || left.tableOrder - right.tableOrder)[0];
+  const target = state.tableCards.filter((item) => state.legalTargetIds.includes(item.card.id)).sort((left, right) => getPickRedCaptureGain(state, state.pendingCard!.ownerPlayerId, state.pendingCard!.card, right.card) - getPickRedCaptureGain(state, state.pendingCard!.ownerPlayerId, state.pendingCard!.card, left.card) || calculatePickRedCardScore(right.card, state.players.length) - calculatePickRedCardScore(left.card, state.players.length) || left.tableOrder - right.tableOrder)[0];
   if (!target) throw new Error("TARGET_SELECTION_REQUIRED");
   return capturePickRedPair(state, state.pendingCard.ownerPlayerId, target.card.id, now);
+}
+
+/** 模擬一次吃牌後的即時分數差，包含四人局雙紅五的實際轉帳。 */
+export function getPickRedCaptureGain(state: PickRedPointsState, playerId: string, playedCard: Card, tableCard: Card): number {
+  const playerIds = state.players.map((player) => player.id);
+  const capturedCards = { ...state.capturedCards, [playerId]: [...(state.capturedCards[playerId] ?? []), playedCard, tableCard] };
+  const nextScores = calculatePickRedScores(capturedCards, playerIds);
+  return (nextScores[playerId] ?? 0) - (state.scores[playerId] ?? 0);
 }
 
 /** 依座位順序取得下一位玩家，最後一位之後回到第一位。 */

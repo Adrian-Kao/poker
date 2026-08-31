@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { advancePickRedPoints, calculatePickRedCardScore, calculatePickRedScores, choosePickRedBotAction, createPickRedPointsGame, finalizePickRedScores, getPickRedDealCount, getPickRedWinners, getPickRedWinningScore, isAllBlackPickRedHand, isValidPickRedPair, keepPickRedBlackHand, playPickRedHandCard, requestPickRedBlackHandReshuffle, selectPickRedCaptureTarget } from "../../lib/games/pick-red-points";
+import { advancePickRedPoints, calculatePickRedCardScore, calculatePickRedScores, chooseBestPickRedHandCard, chooseBestPickRedTarget, choosePickRedBotAction, createPickRedPointsGame, finalizePickRedScores, getPickRedDealCount, getPickRedWinners, getPickRedWinningScore, isAllBlackPickRedHand, isValidPickRedPair, keepPickRedBlackHand, playPickRedHandCard, requestPickRedBlackHandReshuffle, selectPickRedCaptureTarget } from "../../lib/games/pick-red-points";
 import type { Card } from "../../lib/games/core/cards";
 
 const players = [{ id: "p1", nickname: "阿德" }, { id: "p2", nickname: "小美" }];
@@ -54,6 +54,38 @@ test("does not reveal the draw-pile card until the hand card has finished resolv
   assert.equal(afterDraw.phase, "revealing-draw");
   assert.equal(afterDraw.pendingCard?.source, "draw");
   assert.equal(afterDraw.drawPile.length, custom.drawPile.length - 1);
+});
+
+test("bot prioritizes the capture with the greatest actual score gain", () => {
+  const state = createPickRedPointsGame({ players: [...players, { id: "p3", nickname: "三" }, { id: "p4", nickname: "四" }], random: () => 0.2 });
+  const custom = { ...state, phase: "playing-hand" as const, currentPlayerId: "p1" as string, hands: { ...state.hands, p1: [card("hand-r5", "5", "hearts"), card("hand-ra", "A", "hearts")] }, tableCards: [{ card: card("table-r5", "5", "diamonds"), enteredAtTurn: 0, tableOrder: 0 }, { card: card("table-b9", "9", "clubs"), enteredAtTurn: 0, tableOrder: 1 }], capturedCards: { p1: [], p2: [card("p2-a", "A", "hearts")], p3: [card("p3-a", "A", "diamonds")], p4: [card("p4-a", "A", "hearts")] }, scores: { p1: 0, p2: 20, p3: 20, p4: 20 } };
+  assert.equal(chooseBestPickRedHandCard(custom, "p1").id, "hand-r5");
+});
+
+test("bot follows the no-score discard order", () => {
+  const state = createPickRedPointsGame({ players, random: () => 0.2 });
+  const custom = { ...state, phase: "playing-hand" as const, currentPlayerId: "p1" as string, hands: { ...state.hands, p1: [card("red-a", "A", "hearts"), card("red-4", "4", "hearts"), card("black-8", "8", "clubs")] }, tableCards: [] };
+  assert.equal(chooseBestPickRedHandCard(custom, "p1").id, "black-8");
+});
+
+test("bot discards the matching black rank first after both red cards appeared", () => {
+  const state = createPickRedPointsGame({ players, random: () => 0.2 });
+  const custom = { ...state, phase: "playing-hand" as const, currentPlayerId: "p1" as string, hands: { ...state.hands, p1: [card("black-8", "8", "clubs"), card("safe-black-6", "6", "spades")] }, tableCards: [], capturedCards: { ...state.capturedCards, p2: [card("heart-6", "6", "hearts"), card("diamond-6", "6", "diamonds")] } };
+  assert.equal(chooseBestPickRedHandCard(custom, "p1").id, "safe-black-6");
+});
+
+test("third or fourth seat preserves red five by capturing black five with black five", () => {
+  const state = createPickRedPointsGame({ players: [...players, { id: "p3", nickname: "三" }, { id: "p4", nickname: "四" }], random: () => 0.2 });
+  const custom = { ...state, phase: "playing-hand" as const, currentPlayerId: "p3" as string, hands: { ...state.hands, p3: [card("red-5", "5", "hearts"), card("black-5", "5", "clubs"), card("red-a", "A", "hearts")] }, tableCards: [{ card: card("table-black-5", "5", "spades"), enteredAtTurn: 0, tableOrder: 0 }, { card: card("table-red-9", "9", "diamonds"), enteredAtTurn: 0, tableOrder: 1 }] };
+  assert.equal(chooseBestPickRedHandCard(custom, "p3").id, "black-5");
+});
+
+test("bot and timeout target selection prefer the greatest actual score gain", () => {
+  const state = createPickRedPointsGame({ players, random: () => 0.2 });
+  const custom = { ...state, phase: "selecting-hand-target" as const, currentPlayerId: "p1" as string, pendingCard: { card: card("red-a", "A", "hearts"), source: "hand" as const, ownerPlayerId: "p1" }, tableCards: [{ card: card("black-9", "9", "clubs"), enteredAtTurn: 0, tableOrder: 0 }, { card: card("red-9", "9", "diamonds"), enteredAtTurn: 0, tableOrder: 1 }], legalTargetIds: ["black-9", "red-9"], targetDeadline: 100 };
+  assert.equal(chooseBestPickRedTarget(custom, "p1")?.card.id, "red-9");
+  const resolved = advancePickRedPoints(custom, 100);
+  assert.equal(resolved.capturedCards.p1.some((captured) => captured.id === "red-9"), true);
 });
 
 test("two-player and three-player games score only red cards", () => {
