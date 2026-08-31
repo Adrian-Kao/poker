@@ -1,13 +1,14 @@
 "use client";
 
-import { AlertTriangle, BookOpen, CheckCircle2, Hand, LogOut, Play, ShieldCheck, Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, Hand } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "colyseus.js";
-import { HeartAttackRoomStateSchema, type PublicHeartAttackPlayer } from "../../../server/schema/HeartAttackRoomState";
+import { HeartAttackRoomStateSchema } from "../../../server/schema/HeartAttackRoomState";
 import type { HeartAttackPhase, PenaltyReason, PenaltyResult } from "../../../lib/games/heart-attack";
 import type { HeartAttackServerEvent } from "../../../server/messages/heartAttackMessages";
 import { useBgmMode } from "../../SoundProvider";
+import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom } from "../room";
 
 type Suit = "spades" | "hearts" | "diamonds" | "clubs";
 type DemoCard = { id: string; rank: string; suit: Suit };
@@ -93,7 +94,7 @@ export default function HeartAttackAutoPage() {
         roomRef.current = room;
         setOwnPlayerId(`player-${room.sessionId}`);
         setStatus("connected");
-        setStatusText(mode === "join" ? "已加入等待室，請切換準備狀態。" : "房間已建立，分享房號邀請朋友。");
+        setStatusText(mode === "join" ? "已加入等待室，等待房主開始遊戲。" : "房間已建立，分享房號邀請朋友。");
         setRoomState(room.state);
         setStateVersion((version) => version + 1);
         setRoomCode(room.state.roomCode || room.roomId.slice(0, 6));
@@ -145,17 +146,16 @@ export default function HeartAttackAutoPage() {
   }, []);
 
   const rawPlayers = useMemo(() => Array.from(roomState?.players ?? []), [roomState, stateVersion]);
-  const emptySeatCount = Math.max(0, (roomState?.maxPlayers ?? 4) - rawPlayers.length);
   const players = useMemo(() => mapPlayers(roomState, ownPlayerId, nickname), [roomState, ownPlayerId, nickname, stateVersion]);
   const ownPlayer = players.find((player) => player.seat === "self") ?? fallbackPlayers[0];
-  const ownReady = rawPlayers.find((player) => player.id === ownPlayerId)?.ready ?? false;
+  const isHost = rawPlayers[0]?.id === ownPlayerId;
   const currentPlayer = players.find((player) => player.id === roomState?.currentPlayerId) ?? ownPlayer;
   const phase = (roomState?.phase ?? "waiting") as HeartAttackPhase;
   useBgmMode(phase === "waiting" ? "lobby" : "playing");
   const lastCard = roomState?.lastCard?.id ? toDemoCard(roomState.lastCard) : null;
   const penaltyResult = roomState?.penaltyNotice?.id ? toPenaltyResult(roomState.penaltyNotice) : null;
   const canUseRoom = status === "connected" && !!roomRef.current;
-  const canStart = canUseRoom && phase === "waiting" && rawPlayers.length >= 3 && rawPlayers.every((player) => player.ready);
+  const canStart = canUseRoom && isHost && phase === "waiting" && rawPlayers.length === (roomState?.maxPlayers ?? 4);
   const canSlap = canUseRoom && phase !== "waiting" && phase !== "round-result" && phase !== "finished";
 
   function send(type: "SET_READY" | "START_GAME" | "ADD_BOT" | "SLAP" | "PLAY_AGAIN" | "CLOSE_ROOM", extra: Record<string, unknown> = {}) {
@@ -183,50 +183,28 @@ export default function HeartAttackAutoPage() {
   }
 
   if (phase === "waiting") {
-    return (
-      <main className="heart-auto-shell">
-        <HeartHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
-        <section className="heart-waiting-room">
-          <div className="waiting-room-title">
-            <span className="stamp">等待室</span>
-            <h1>心臟病 房間</h1>
-          </div>
-          <div className="waiting-room-code">
-            <span>{formatRoom(roomCode)}</span>
-            <button type="button" onClick={() => navigator.clipboard?.writeText(roomCode)}>複製房號</button>
-          </div>
-          <div className="heart-lobby-list">
-            {rawPlayers.map((player, index) => (
-              <LobbySeat key={player.id} player={player} index={index} isSelf={player.id === ownPlayerId} />
-            ))}
-            {Array.from({ length: emptySeatCount }).map((_, index) => (
-              <LobbyEmptySeat key={`empty-${index}`} seatNumber={rawPlayers.length + index + 1} />
-            ))}
-          </div>
-          <div className="heart-lobby-actions">
-            <button type="button" className={`ready-button ${ownReady ? "is-ready" : ""}`} onClick={() => send("SET_READY", { ready: !ownReady })} disabled={!canUseRoom}>
-              <CheckCircle2 size={22} />
-              {ownReady ? "取消準備" : "我準備好了"}
-            </button>
-            <button type="button" className="play-card-button compact-action" onClick={() => send("START_GAME")} disabled={!canStart}>
-              <Play size={20} />
-              開始遊戲
-            </button>
-          </div>
-          <p className="waiting-room-hint">
-            已加入的真人玩家才會出現在等待室。心臟病需至少 3 位真人玩家；全員準備後會進入牌桌。
-          </p>
-          <p className={`connection-note ${status}`}>{statusText}</p>
-        </section>
-      </main>
-    );
+    return <UnifiedWaitingRoom
+      gameName="心臟病"
+      roomCode={roomCode}
+      status={status}
+      statusText={statusText}
+      players={rawPlayers.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.id === rawPlayers[0]?.id, ready: player.ready, type: player.type }))}
+      maxPlayers={roomState?.maxPlayers ?? 4}
+      ownId={ownPlayerId}
+      isHost={isHost}
+      canUseRoom={canUseRoom}
+      canStart={canStart}
+      realOnly
+      minPlayers={2}
+      onStart={() => send("START_GAME")}
+      onLeave={leaveAndCloseRoom}
+    />;
   }
-
   return (
     <main className="heart-auto-shell">
       <HeartHeader roomCode={roomCode} status={status} onLeave={leaveAndCloseRoom} />
 
-      <section className={`heart-auto-table phase-${phase}`}>
+      <RoomTable gameName="心臟病" className={`heart-auto-table phase-${phase}`}>
         {players.filter((player) => player.seat !== "self").map((player) => (
           <Opponent key={player.seat} player={player} current={player.id === roomState?.currentPlayerId} />
         ))}
@@ -256,7 +234,7 @@ export default function HeartAttackAutoPage() {
         ) : null}
 
         <div className="self-zone">
-          <PlayerBadge player={ownPlayer} current={ownPlayer.id === roomState?.currentPlayerId} />
+          <RoomSelfBadge nickname={ownPlayer.nickname} active={ownPlayer.id === roomState?.currentPlayerId} count={ownPlayer.cardsRemaining} />
           <div className="self-hand" aria-label="我的牌堆">
             {Array.from({ length: Math.min(8, ownPlayer.cardsRemaining) }).map((_, index) => (
               <div key={index} className="card-back mini" style={{ "--offset": `${index * 13}px` } as CSSProperties}>鬥</div>
@@ -264,7 +242,7 @@ export default function HeartAttackAutoPage() {
           </div>
           <div className="self-count">剩餘 {ownPlayer.cardsRemaining} 張</div>
         </div>
-      </section>
+      </RoomTable>
 
       <div className="heart-slap-dock">
         <button type="button" className="slap-button docked-slap-button" onClick={slap} disabled={!canSlap}>
@@ -278,72 +256,12 @@ export default function HeartAttackAutoPage() {
 }
 
 function HeartHeader({ roomCode, status, onLeave }: { roomCode: string; status: ConnectionStatus; onLeave: () => void }) {
-  return (
-    <header className="heart-auto-header">
-      <div className="brand-lockup" aria-label="鬥陣來一局">
-        <span className="brand-mark">鬥陣</span>
-        <span className="brand-title">心臟病</span>
-      </div>
-      <div className="header-meta">
-        <span>房號 <strong>{formatRoom(roomCode)}</strong></span>
-        <span>第 <strong>1</strong> 局</span>
-        <span className={`connection-pill ${status}`}>
-          {status === "connected" ? <Wifi size={18} /> : <WifiOff size={18} />}
-          {status === "connected" ? "已連線" : "連線中"}
-        </span>
-        <span className="real-only"><ShieldCheck size={18} />只限真人優先</span>
-      </div>
-      <div className="header-actions">
-        <button type="button" className="outline-action"><BookOpen size={21} />玩法</button>
-        <button type="button" className="leave-action" onClick={onLeave}><LogOut size={21} />離開牌局</button>
-      </div>
-    </header>
-  );
-}
-
-function LobbySeat({ player, index, isSelf }: { player: PublicHeartAttackPlayer; index: number; isSelf: boolean }) {
-  const color = colorOrder[index % colorOrder.length];
-  return (
-    <article className={`heart-lobby-seat lobby-${color} ${player.ready ? "ready" : ""}`}>
-      <span>座位 {index + 1}</span>
-      <strong>{player.nickname}{isSelf ? "（你）" : ""}</strong>
-      <em>{player.type === "bot" ? "電腦玩家" : "真人玩家"}</em>
-      <b>{player.ready ? "已準備" : "未準備"}</b>
-    </article>
-  );
-}
-
-function LobbyEmptySeat({ seatNumber }: { seatNumber: number }) {
-  return (
-    <article className="heart-lobby-seat lobby-empty-seat" aria-label={`座位 ${seatNumber} 等待玩家`}>
-      <span className="empty-seat-icon" aria-hidden="true">♙</span>
-      <strong>等待玩家</strong>
-      <em>空位</em>
-    </article>
-  );
+  return <RoomHeader gameName="心臟病" roomCode={roomCode} status={status} realOnly docsHref="/docs/games/heart-attack.md" onLeave={onLeave} />;
 }
 
 function Opponent({ player, current }: { player: TablePlayer; current: boolean }) {
-  return (
-    <div className={`opponent-seat seat-${player.seat} ${current ? "is-current" : ""} ${player.connected ? "" : "disconnected"}`}>
-      <PlayerBadge player={player} current={current} />
-      <div className="opponent-hand">
-        {Array.from({ length: Math.min(5, Math.max(0, player.cardsRemaining || 5)) }).map((_, index) => (
-          <div key={index} className="card-back" style={{ "--tilt": `${(index - 2) * 5}deg` } as CSSProperties}>鬥</div>
-        ))}
-      </div>
-      <div className="seat-count">剩餘 {player.cardsRemaining} 張</div>
-    </div>
-  );
-}
-
-function PlayerBadge({ player, current }: { player: TablePlayer; current: boolean }) {
-  return (
-    <div className={`player-badge badge-${player.color} ${current ? "active" : ""}`}>
-      <span className="avatar-letter">{player.nickname.trim().slice(0, 1) || "玩"}</span>
-      <strong>{player.nickname}</strong>
-    </div>
-  );
+  if (player.seat === "self") return null;
+  return <RoomOpponentSeat player={{ id: player.id, nickname: player.nickname, cardsRemaining: player.cardsRemaining, type: player.type, connected: player.connected }} position={player.seat} active={current} />;
 }
 
 function PenaltyAlert({ result, targetPlayerColor, isVisible }: { result: PenaltyResult; targetPlayerColor: string; isVisible: boolean }) {
@@ -439,11 +357,6 @@ function getPenaltyCopy(result: PenaltyResult) {
     case "pending-finish-failed":
       return { label: "收牌！", title: `${result.playerName} 還沒脫身`, description: "出完牌後尚未活過一輪，必須把牌收回去。" };
   }
-}
-
-function formatRoom(value: string) {
-  const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-");
-  return `${clean.slice(0, 3)} ${clean.slice(3)}`;
 }
 
 function getTabClientId(scope: string) {

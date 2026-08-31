@@ -14,6 +14,7 @@ import {
   type BluffState,
   type BotDifficulty
 } from "../../lib/games/bluff";
+import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import { BluffRoomStateSchema, syncBluffPublicState, type LobbyBluffPlayer } from "../schema/BluffRoomState";
 import type { BluffClientMessage, BluffServerEvent } from "../messages/bluffMessages";
 import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "../utilities/scheduler";
@@ -56,7 +57,7 @@ export class BluffRoomController {
     this.onGameStarted = options.onGameStarted ?? (() => undefined);
     this.publicState.roomCode = options.roomCode ?? createRoomCode(this.random);
     this.publicState.maxPlayers = clampMaxPlayers(options.maxPlayers ?? 4);
-    this.initialBotCount = Math.max(0, Math.floor(options.initialBotCount ?? 0));
+    this.initialBotCount = 0;
     this.botDifficulty = options.botDifficulty ?? "normal";
     this.syncPublic();
   }
@@ -132,10 +133,8 @@ export class BluffRoomController {
   addBot(sessionId: string, actionId: string, difficulty: BotDifficulty) {
     this.requireFreshAction(actionId);
     this.requireHost(sessionId);
-    if (this.gameState) throw new Error("Cannot add bot after start.");
-    if (this.lobbyPlayers.length >= this.publicState.maxPlayers) throw new Error("Room is full.");
-    this.addBotInternal(difficulty);
-    this.syncPublic();
+    void difficulty;
+    throw new Error("Bluff is real players only.");
   }
 
   removeBot(sessionId: string, actionId: string, botId: string) {
@@ -150,10 +149,8 @@ export class BluffRoomController {
     this.requireFreshAction(actionId);
     this.requireHost(sessionId);
     if (this.gameState) throw new Error("Game already started.");
-    if (this.lobbyPlayers.length < 3) throw new Error("Bluff needs at least 3 players.");
-    if (!this.lobbyPlayers.every((player) => player.type === "bot" || (player.connected && player.ready))) {
-      throw new Error("All joined players must be ready.");
-    }
+    if (this.lobbyPlayers.length !== this.publicState.maxPlayers) throw new Error("All seats must be filled.");
+    if (!this.lobbyPlayers.every((player) => player.type === "bot" || player.connected)) throw new Error("All players must be connected.");
 
     this.gameState = createBluffGame({
       players: this.lobbyPlayers.map((player) => ({
@@ -354,7 +351,12 @@ export class BluffRoomController {
     this.botCounter += 1;
     this.lobbyPlayers.push({
       id: `bot-${number}`,
-      nickname: `電腦${number}`,
+      nickname: getBotPlayerNameForDifficulty(
+        number,
+        difficulty,
+        this.random,
+        this.lobbyPlayers.map((player) => player.nickname)
+      ),
       seat: this.lobbyPlayers.length,
       type: "bot",
       botDifficulty: difficulty,

@@ -32,37 +32,46 @@ test("controller deduplicates reconnects from the same browser tab", () => {
   assert.equal(controller.publicState.players[1]?.nickname, "測試三");
 });
 
-test("controller auto-starts only after every joined player is ready", () => {
+test("controller waits for the host to start after all configured seats are filled", () => {
   const scheduler = new ManualRoomScheduler(1000);
   const events: HeartAttackServerEvent[] = [];
-  const controller = new HeartAttackRoomController({ scheduler, emit: (event) => events.push(event), roomCode: "123456" });
+  const controller = new HeartAttackRoomController({ maxPlayers: 3, scheduler, emit: (event) => events.push(event), roomCode: "123456" });
 
   controller.addHuman("s1", "阿德");
   controller.addHuman("s2", "小米");
   controller.addHuman("s3", "怡君");
-  controller.setReady("s1", "ready-1", true);
-  controller.setReady("s2", "ready-2", true);
-
   assert.equal(controller.publicState.phase, "waiting");
 
-  controller.setReady("s3", "ready-3", true);
+  controller.startGame("s1", "start-1");
 
   assert.equal(controller.publicState.phase, "playing");
   assert.equal(controller.publicState.players.length, 3);
-  assert.equal(controller.state?.nextAutoPlayAt, 1800);
+  assert.equal(controller.state?.nextAutoPlayAt, 1900);
   assert.equal(events.at(-1)?.type, "GAME_STARTED");
   assert.equal(scheduler.activeTaskCount(), 1);
 });
 
-test("manual start rejects when not every joined player is ready", () => {
-  const controller = new HeartAttackRoomController();
+test("controller allows a two-player heart attack room", () => {
+  const scheduler = new ManualRoomScheduler(1000);
+  const controller = new HeartAttackRoomController({ maxPlayers: 2, scheduler, roomCode: "123456" });
+
   controller.addHuman("s1", "阿德");
   controller.addHuman("s2", "小米");
-  controller.addHuman("s3", "怡君");
-  controller.setReady("s1", "ready-1", true);
-  controller.setReady("s2", "ready-2", true);
+  controller.startGame("s1", "start-two-player");
 
-  assert.throws(() => controller.startGame("start-1"), /ready/);
+  assert.equal(controller.publicState.maxPlayers, 2);
+  assert.equal(controller.publicState.phase, "playing");
+  assert.equal(controller.state?.playerDecks["player-s1"].length, 27);
+  assert.equal(controller.state?.playerDecks["player-s2"].length, 27);
+});
+
+test("manual start requires a full room and the host", () => {
+  const controller = new HeartAttackRoomController({ maxPlayers: 3 });
+  controller.addHuman("s1", "阿德");
+  controller.addHuman("s2", "小米");
+  assert.throws(() => controller.startGame("s1", "start-before-full"), /seats/i);
+  controller.addHuman("s3", "怡君");
+  assert.throws(() => controller.startGame("s2", "start-by-non-host"), /host/i);
   assert.equal(controller.publicState.phase, "waiting");
 });
 
@@ -70,10 +79,10 @@ test("auto-play tick flips one private top card and publishes only public state"
   const { controller, scheduler, events } = startedController();
   const state = requireState(controller.state);
   state.callNumber = 7;
-  state.nextAutoPlayAt = 1800;
+  state.nextAutoPlayAt = 1900;
   state.playerDecks["player-s1"] = [card("8"), card("2")];
 
-  scheduler.advanceBy(800);
+  scheduler.advanceBy(900);
 
   assert.equal(controller.state?.centerPile.length, 1);
   assert.equal(controller.publicState.centerPileCount, 1);
@@ -86,12 +95,12 @@ test("triggered auto-play keeps autoplay scheduled without a prompt", () => {
   const { controller, scheduler, events } = startedController();
   const state = requireState(controller.state);
   state.callNumber = 7;
-  state.nextAutoPlayAt = 1800;
+  state.nextAutoPlayAt = 1900;
   state.playerDecks["player-s1"] = [card("7"), card("2")];
 
-  scheduler.advanceBy(800);
+  scheduler.advanceBy(900);
   assert.equal(controller.state?.phase, "playing");
-  assert.equal(controller.state?.nextAutoPlayAt, 2600);
+  assert.equal(controller.state?.nextAutoPlayAt, 2800);
   assert.equal(events.some((event) => event.type === "SLAP_WINDOW_OPENED"), false);
 
   scheduler.advanceBy(100);
@@ -111,10 +120,10 @@ test("round-result rejects new slap and resumes after notice window", () => {
   const { controller, scheduler } = startedController();
   const state = requireState(controller.state);
   state.callNumber = 7;
-  state.nextAutoPlayAt = 1800;
+  state.nextAutoPlayAt = 1900;
   state.playerDecks["player-s1"] = [card("8"), card("2")];
 
-  scheduler.advanceBy(800);
+  scheduler.advanceBy(900);
   controller.slap("s2", "false-slap");
   assert.equal(controller.state?.phase, "round-result");
   assert.throws(() => controller.slap("s3", "late-slap"), /Cannot slap now/);
@@ -132,18 +141,17 @@ test("duplicate actionId is rejected", () => {
 
 test("bot slap timers are cancelled on dispose", () => {
   const scheduler = new ManualRoomScheduler(1000);
-  const controller = new HeartAttackRoomController({ scheduler, random: () => 0.5 });
+  const controller = new HeartAttackRoomController({ maxPlayers: 3, scheduler, random: () => 0.5 });
   controller.addHuman("s1", "阿德");
   controller.addHuman("s2", "小米");
   controller.addBot("bot-1", "hard");
-  controller.setReady("s1", "ready-1", true);
-  controller.setReady("s2", "ready-2", true);
+  controller.startGame("s1", "start-1");
   const state = requireState(controller.state);
   state.callNumber = 7;
-  state.nextAutoPlayAt = 1800;
+  state.nextAutoPlayAt = 1900;
   state.playerDecks["player-s1"] = [card("7"), card("2")];
 
-  scheduler.advanceBy(800);
+  scheduler.advanceBy(900);
   assert.equal(controller.state?.phase, "playing");
   assert(scheduler.activeTaskCount() >= 1);
 
@@ -154,13 +162,11 @@ test("bot slap timers are cancelled on dispose", () => {
 function startedController() {
   const scheduler = new ManualRoomScheduler(1000);
   const events: HeartAttackServerEvent[] = [];
-  const controller = new HeartAttackRoomController({ scheduler, emit: (event) => events.push(event) });
+  const controller = new HeartAttackRoomController({ maxPlayers: 3, scheduler, emit: (event) => events.push(event) });
   controller.addHuman("s1", "阿德");
   controller.addHuman("s2", "小米");
   controller.addHuman("s3", "怡君");
-  controller.setReady("s1", "ready-1", true);
-  controller.setReady("s2", "ready-2", true);
-  controller.setReady("s3", "ready-3", true);
+  controller.startGame("s1", "start-1");
   return { controller, scheduler, events };
 }
 

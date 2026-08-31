@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculatePickRedCardScore, calculatePickRedScores, choosePickRedBotAction, createPickRedPointsGame, finalizePickRedScores, getPickRedDealCount, getPickRedWinners, getPickRedWinningScore, isAllBlackPickRedHand, isValidPickRedPair, keepPickRedBlackHand, playPickRedHandCard, requestPickRedBlackHandReshuffle, selectPickRedCaptureTarget } from "../../lib/games/pick-red-points";
+import { advancePickRedPoints, calculatePickRedCardScore, calculatePickRedScores, choosePickRedBotAction, createPickRedPointsGame, finalizePickRedScores, getPickRedDealCount, getPickRedWinners, getPickRedWinningScore, isAllBlackPickRedHand, isValidPickRedPair, keepPickRedBlackHand, playPickRedHandCard, requestPickRedBlackHandReshuffle, selectPickRedCaptureTarget } from "../../lib/games/pick-red-points";
 import type { Card } from "../../lib/games/core/cards";
 
 const players = [{ id: "p1", nickname: "阿德" }, { id: "p2", nickname: "小美" }];
@@ -35,15 +35,34 @@ test("requires selecting one target and captures exactly one table card", () => 
   const selected = playPickRedHandCard(custom, "p1", "hand-3", 100, "play-1");
   assert.equal(selected.phase, "selecting-hand-target");
   assert.equal(selected.legalTargetIds.length, 2);
+  assert.equal(selected.drawPile.length, custom.drawPile.length);
   const captured = selectPickRedCaptureTarget(selected, "p1", "table-7a", "hand", 200, "target-1");
   assert.equal(captured.capturedCards.p1.length, 2);
-  assert.equal(captured.tableCards.length, 2);
+  assert.equal(captured.tableCards.length, 1);
+  assert.equal(captured.phase, "drawing");
+  assert.equal(captured.drawPile.length, custom.drawPile.length);
+});
+
+test("does not reveal the draw-pile card until the hand card has finished resolving", () => {
+  const state = createPickRedPointsGame({ players, random: () => 0.2 });
+  const custom = { ...state, phase: "playing-hand" as const, hands: { ...state.hands, p1: [card("hand-k", "K")] }, tableCards: [], currentPlayerId: "p1" as string };
+  const afterHand = playPickRedHandCard(custom, "p1", "hand-k", 100, "play-before-draw");
+  assert.equal(afterHand.phase, "drawing");
+  assert.equal(afterHand.pendingCard, null);
+  assert.equal(afterHand.drawPile.length, custom.drawPile.length);
+  const afterDraw = advancePickRedPoints(afterHand, 200);
+  assert.equal(afterDraw.phase, "revealing-draw");
+  assert.equal(afterDraw.pendingCard?.source, "draw");
+  assert.equal(afterDraw.drawPile.length, custom.drawPile.length - 1);
 });
 
 test("two-player and three-player games score only red cards", () => {
   assert.equal(calculatePickRedCardScore(card("sa", "A", "spades"), 2), 0);
+  assert.equal(calculatePickRedCardScore(card("sa3", "A", "spades"), 3), 0);
+  assert.equal(calculatePickRedCardScore(card("ca2", "A", "clubs"), 2), 0);
   assert.equal(calculatePickRedCardScore(card("ca", "A", "clubs"), 3), 0);
   assert.equal(calculatePickRedCardScore(card("ha", "A", "hearts"), 2), 20);
+  assert.equal(calculatePickRedCardScore(card("da", "A", "diamonds"), 3), 20);
   assert.equal(calculatePickRedCardScore(card("d7", "7", "diamonds"), 3), 7);
   assert.equal(calculatePickRedCardScore(card("h9", "9", "hearts"), 2), 10);
   assert.equal(calculatePickRedCardScore(card("dk", "K", "diamonds"), 3), 10);
@@ -52,6 +71,8 @@ test("two-player and three-player games score only red cards", () => {
 test("four-player games score the ace of spades but no other black cards", () => {
   assert.equal(calculatePickRedCardScore(card("sa", "A", "spades"), 4), 10);
   assert.equal(calculatePickRedCardScore(card("ca", "A", "clubs"), 4), 0);
+  assert.equal(calculatePickRedCardScore(card("ha", "A", "hearts"), 4), 20);
+  assert.equal(calculatePickRedCardScore(card("da", "A", "diamonds"), 4), 20);
   assert.equal(calculatePickRedCardScore(card("s10", "10", "spades"), 4), 0);
   assert.equal(calculatePickRedCardScore(card("ck", "K", "clubs"), 4), 0);
 });
@@ -156,8 +177,10 @@ test("two, three and four player games finish with every hand empty", () => {
     });
     if (state.phase === "black-hand-decision") state = { ...state, phase: "playing-hand", blackHandPendingPlayerIds: [] };
 
-    for (let step = 0; state.phase !== "finished" && step < 200; step += 1) {
-      state = choosePickRedBotAction(state, state.currentPlayerId ?? "", "normal", step + 1);
+    for (let step = 0; state.phase !== "finished" && step < 400; step += 1) {
+      state = state.phase === "drawing" || state.phase === "revealing-draw"
+        ? advancePickRedPoints(state, step + 1)
+        : choosePickRedBotAction(state, state.currentPlayerId ?? "", "normal", step + 1);
     }
 
     assert.equal(state.phase, "finished", `${playerCount} 人局應正常結束`);

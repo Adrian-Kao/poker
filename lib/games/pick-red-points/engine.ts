@@ -66,7 +66,7 @@ export function playPickRedHandCard(state: PickRedPointsState, playerId: string,
   if (!card) throw new Error("CARD_NOT_IN_HAND");
   const legalTargets = getMatchingTableCards(card, state.tableCards);
   const next = markAction({ ...state, hands: { ...state.hands, [playerId]: state.hands[playerId].filter((item) => item.id !== cardId) }, pendingCard: { card, source: "hand", ownerPlayerId: playerId }, legalTargetIds: legalTargets.map((item) => item.card.id), targetDeadline: legalTargets.length ? now + TARGET_SELECTION_MS : null, phase: legalTargets.length ? "selecting-hand-target" : "drawing", lastResult: legalTargets.length ? "請選擇一張桌牌配對" : `${card.rank} 沒有可配對的牌，將留在桌上` }, actionId);
-  return legalTargets.length ? next : drawPickRedCard(placePickRedCardOnTable(next, playerId), playerId, now);
+  return legalTargets.length ? next : placePickRedCardOnTable(next, playerId);
 }
 
 /** 驗證玩家選擇的桌牌目標，並完成該次合法配對。 */
@@ -78,22 +78,28 @@ export function selectPickRedCaptureTarget(state: PickRedPointsState, playerId: 
   return capturePickRedPair(markAction(state, actionId), playerId, targetCardId, now);
 }
 
-/** 從抽牌堆翻開一張牌，依配對結果自動吃牌、放上桌面或等待玩家選擇。 */
-export function drawPickRedCard(state: PickRedPointsState, playerId: string, now = Date.now()): PickRedPointsState {
+/** 從抽牌堆翻開一張牌並保留正面展示狀態，讓所有玩家看清翻牌結果。 */
+export function drawPickRedCard(state: PickRedPointsState, playerId: string, _now = Date.now()): PickRedPointsState {
   if (state.phase !== "drawing") throw new Error("INVALID_PHASE");
   if (state.currentPlayerId !== playerId) throw new Error("NOT_YOUR_TURN");
   const card = state.drawPile[0];
   if (!card) return finishPickRedTurn({ ...state, phase: "turn-result", pendingCard: null }, "抽牌堆已空");
   const next = { ...state, drawPile: state.drawPile.slice(1), turnNumber: state.turnNumber + 1 };
   const legalTargets = getMatchingTableCards(card, next.tableCards);
-  if (!legalTargets.length) return finishPickRedTurn(placePickRedCardOnTable({ ...next, pendingCard: { card, source: "draw", ownerPlayerId: playerId } }, playerId), "翻牌沒有配對，牌留在桌上");
-  // 抽牌配對會由 capturePickRedPair 完成回合，不可在這裡再次推進，否則會跳過下一位玩家。
-  if (legalTargets.length === 1) return capturePickRedPair({ ...next, pendingCard: { card, source: "draw", ownerPlayerId: playerId }, legalTargetIds: [legalTargets[0].card.id] }, playerId, legalTargets[0].card.id, now);
-  return { ...next, phase: "selecting-draw-target", pendingCard: { card, source: "draw", ownerPlayerId: playerId }, legalTargetIds: legalTargets.map((item) => item.card.id), targetDeadline: now + TARGET_SELECTION_MS, lastResult: "翻出的牌有多個配對，請選擇桌牌" };
+  return { ...next, phase: "revealing-draw", pendingCard: { card, source: "draw", ownerPlayerId: playerId }, legalTargetIds: legalTargets.map((item) => item.card.id), targetDeadline: null, lastResult: `翻出 ${card.rank}` };
+}
+
+/** 結束翻牌展示；無配對就落桌、單一配對自動收牌，多個配對則等待玩家選擇。 */
+export function resolvePickRedDrawReveal(state: PickRedPointsState, now = Date.now()): PickRedPointsState {
+  if (state.phase !== "revealing-draw" || !state.pendingCard || state.pendingCard.source !== "draw") return state;
+  const playerId = state.pendingCard.ownerPlayerId;
+  if (!state.legalTargetIds.length) return finishPickRedTurn(placePickRedCardOnTable(state, playerId), "翻牌沒有配對，牌留在桌上");
+  if (state.legalTargetIds.length === 1) return capturePickRedPair(state, playerId, state.legalTargetIds[0], now);
+  return { ...state, phase: "selecting-draw-target", targetDeadline: now + TARGET_SELECTION_MS, lastResult: "翻出的牌有多個配對，請選擇桌牌" };
 }
 
 /** 將等待中的牌與指定桌牌交給玩家，移除桌牌並重新計算所有玩家分數。 */
-export function capturePickRedPair(state: PickRedPointsState, playerId: string, targetCardId: string, now = Date.now()): PickRedPointsState {
+export function capturePickRedPair(state: PickRedPointsState, playerId: string, targetCardId: string, _now = Date.now()): PickRedPointsState {
   const pending = state.pendingCard;
   if (!pending || pending.ownerPlayerId !== playerId) throw new Error("TARGET_SELECTION_REQUIRED");
   const target = state.tableCards.find((item) => item.card.id === targetCardId);
@@ -102,7 +108,7 @@ export function capturePickRedPair(state: PickRedPointsState, playerId: string, 
   const scores = calculatePickRedScores(capturedCards, state.players.map((player) => player.id));
   const scoreChange = scores[playerId] - (state.scores[playerId] ?? 0);
   const next = { ...state, phase: pending.source === "hand" ? "drawing" as const : "turn-result" as const, tableCards: state.tableCards.filter((item) => item.card.id !== targetCardId), capturedCards, scores, pendingCard: null, legalTargetIds: [], targetDeadline: null, lastResult: `撿到${pending.card.rank}與${target.card.rank}，${scoreChange >= 0 ? "+" : ""}${scoreChange}分` };
-  return pending.source === "hand" ? drawPickRedCard(next, playerId, now) : finishPickRedTurn(next);
+  return pending.source === "hand" ? next : finishPickRedTurn(next);
 }
 
 /** 在沒有合法配對時，將等待中的牌正面加入桌面。 */
@@ -124,7 +130,7 @@ export function resolvePickRedTargetTimeout(state: PickRedPointsState, now = Dat
 /** 依座位順序取得下一位玩家，最後一位之後回到第一位。 */
 export function getNextPickRedPlayer(state: PickRedPointsState, playerId = state.currentPlayerId): string | null { if (!playerId) return null; const index = state.players.findIndex((player) => player.id === playerId); return index < 0 ? null : state.players[(index + 1) % state.players.length]?.id ?? null; }
 /** 判斷手牌、抽牌堆及待處理配對是否全部清空。 */
-export function isPickRedGameFinished(state: PickRedPointsState) { return Object.values(state.hands).every((hand) => hand.length === 0) && state.drawPile.length === 0 && !state.pendingCard && !["selecting-hand-target", "selecting-draw-target"].includes(state.phase); }
+export function isPickRedGameFinished(state: PickRedPointsState) { return Object.values(state.hands).every((hand) => hand.length === 0) && state.drawPile.length === 0 && !state.pendingCard && !["selecting-hand-target", "revealing-draw", "selecting-draw-target"].includes(state.phase); }
 /** 依零分逆轉或人數門檻規則取得最終贏家 ID。 */
 export function getPickRedWinners(state: PickRedPointsState): string[] {
   const playerIds = state.players.map((player) => player.id);

@@ -11,6 +11,8 @@ coverage/
 
 # Deployment
 .vercel/
+.colyseus-cloud.json
+server/.colyseus-cloud.json
 
 # Local environment variables
 .env
@@ -28,3 +30,6 @@ pnpm-debug.log*
 # System files
 .DS_Store
 Thumbs.db
+
+#Remotion
+/remotion/

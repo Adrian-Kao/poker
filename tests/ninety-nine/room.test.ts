@@ -5,11 +5,11 @@ import { NinetyNineRoomController } from "../../server/rooms/NinetyNineRoom";
 import type { NinetyNineServerEvent } from "../../server/messages/ninetyNineMessages";
 import { ManualRoomScheduler } from "../../server/utilities/scheduler";
 
-test("controller creates waiting room, adds humans and bots, then starts when ready", () => {
+test("controller creates a waiting room and starts when every seat is filled", () => {
   const events: Array<{ event: NinetyNineServerEvent; playerId?: string }> = [];
   const scheduler = new ManualRoomScheduler();
   const controller = new NinetyNineRoomController({
-    maxPlayers: 4,
+    maxPlayers: 3,
     initialBotCount: 1,
     scheduler,
     random: seeded(1),
@@ -22,8 +22,6 @@ test("controller creates waiting room, adds humans and bots, then starts when re
   assert.equal(controller.publicState.players[0].host, true);
   assert(Array.from(controller.publicState.players).some((player) => player.type === "bot"));
 
-  controller.setReady("s1", "ready-1", true);
-  controller.setReady("s2", "ready-2", true);
   controller.startGame("s1", "start");
 
   assert.equal(controller.publicState.phase, "playing");
@@ -87,6 +85,7 @@ test("timeout performs one server-authoritative automatic action", () => {
   const scheduler = new ManualRoomScheduler(1000);
   const events: NinetyNineServerEvent[] = [];
   const controller = new NinetyNineRoomController({
+    maxPlayers: 2,
     scheduler,
     random: seeded(4),
     emit: (event) => events.push(event)
@@ -113,11 +112,9 @@ test("dispose clears room timers", () => {
 });
 
 function readyStartedController(scheduler = new ManualRoomScheduler()) {
-  const controller = new NinetyNineRoomController({ scheduler, random: seeded(3) });
+  const controller = new NinetyNineRoomController({ maxPlayers: 2, scheduler, random: seeded(3) });
   controller.addHuman("s1", "阿德");
   controller.addHuman("s2", "小萱");
-  controller.setReady("s1", "r1", true);
-  controller.setReady("s2", "r2", true);
   controller.startGame("s1", "start");
   return controller;
 }

@@ -7,7 +7,16 @@ import { games, type Game } from "./data/games";
 import { useSoundControls } from "./SoundProvider";
 
 const difficultyOptions = ["簡單", "普通", "困難"];
-const serverBackedGames = new Set(["heart-attack", "ninety-nine", "liar", "old-maid", "red-dot"]);
+const gameServerUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
+const roomSlugByType: Record<string, string> = {
+  big_two: "big2",
+  sevens: "sevens",
+  pick_red_points: "red-dot",
+  ninety_nine: "ninety-nine",
+  bluff: "liar",
+  heart_attack: "heart-attack",
+  old_maid: "old-maid"
+};
 
 export default function Home() {
   const router = useRouter();
@@ -18,12 +27,13 @@ export default function Home() {
   const [targetPlayers, setTargetPlayers] = useState(4);
   const [botCount, setBotCount] = useState(1);
   const [difficulty, setDifficulty] = useState("普通");
+  const [joinError, setJoinError] = useState("");
+  const [isFindingRoom, setIsFindingRoom] = useState(false);
 
   const game = games.find((item) => item.id === selectedGameId) ?? games[3];
   const humanPlayers = Math.max(1, targetPlayers - (game.bots ? botCount : 0));
   const canCreate = !game.realOnly || humanPlayers >= targetPlayers;
   const codeIsValid = /^\d{6}$/.test(joinCode);
-  const joinGame = serverBackedGames.has(game.slug) ? game : games.find((item) => item.id === "heart-attack") ?? game;
 
   function selectGame(nextGame: Game) {
     setSelectedGameId(nextGame.id);
@@ -43,14 +53,31 @@ export default function Home() {
     router.push(`/games/${game.slug}?${params.toString()}`);
   }
 
-  function joinRoom() {
-    if (!codeIsValid) return;
+  async function joinRoom() {
+    if (!codeIsValid || isFindingRoom) return;
+    setJoinError("");
+    setIsFindingRoom(true);
+    try {
+      const lookupUrl = new URL(`/rooms/${joinCode}`, gameServerUrl.replace(/^ws/, "http"));
+      const response = await fetch(lookupUrl);
+      if (!response.ok) {
+        setJoinError("找不到這個房號，請確認房間仍在等待中。");
+        return;
+      }
+      const result = await response.json() as { roomType?: string };
+      const slug = result.roomType ? roomSlugByType[result.roomType] : undefined;
+      if (!slug) throw new Error("Unsupported room type");
     const params = new URLSearchParams({
       mode: "join",
       room: joinCode,
       name: nickname || "玩家"
     });
-    router.push(`/games/${joinGame.slug}?${params.toString()}`);
+      router.push(`/games/${slug}?${params.toString()}`);
+    } catch {
+      setJoinError("目前無法查詢房間，請稍後再試。");
+    } finally {
+      setIsFindingRoom(false);
+    }
   }
 
   return (
@@ -58,7 +85,7 @@ export default function Home() {
       <section className="hero-grid" aria-labelledby="site-title">
         <div className="hero-copy">
           <p className="stamp">朋友撲克房</p>
-          <h1 id="site-title">玩牌阿!</h1>
+          <h1 id="site-title">鬥陣來!</h1>
           <p className="hero-text">建立私人房間，用六位數房號邀請朋友加入。</p>
           <div className="hero-actions" aria-label="主要操作">
             <a className="primary-action" href="#create-room">
@@ -73,11 +100,14 @@ export default function Home() {
         </div>
 
         <div className="poster" aria-label="朋友撲克牌插圖">
-          <div className="poster-sun">純娛樂</div>
+          
           <div className="table-scene">
             <span className="card-chip blue">排七</span>
+            <span className="card-chip yellow2">吹牛</span>
             <span className="card-chip yellow">九九</span>
             <span className="card-chip cream">心臟病</span>
+            <span className="card-chip cream2">撿紅點</span>
+            <span className="card-chip blue2">抽鬼牌</span>
             <div className="hand-row">
               <span>J</span>
               <span>Q</span>
@@ -255,14 +285,12 @@ export default function Home() {
             {codeIsValid ? "房號格式正確" : "請輸入六位數房號"}
           </div>
 
-          <div className="rule-callout">
-            <Info size={20} />
-            目前請先選擇要加入的遊戲類型，再輸入該遊戲的六位數房號。
-          </div>
+         
 
-          <button className="confirm-room-button" disabled={!codeIsValid} onClick={joinRoom} type="button">
+          {joinError ? <p className="connection-note error">{joinError}</p> : null}
+          <button className="confirm-room-button" disabled={!codeIsValid || isFindingRoom} onClick={joinRoom} type="button">
             <Hash size={20} />
-            加入 {joinGame.name} 房間
+            {isFindingRoom ? "正在尋找房間..." : "加入房間"}
           </button>
         </div>
       </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Bot, CheckCircle2, Clock3, Crown, LogOut, Play, Users } from "lucide-react";
+import { Clock3, Play } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "colyseus.js";
 import type { Card, Rank, Suit } from "../../../lib/games/core/cards";
@@ -8,6 +8,7 @@ import type { PickRedPointsPhase } from "../../../lib/games/pick-red-points";
 import { PickRedPointsRoomStateSchema, type PublicPickRedPlayer } from "../../../server/schema/PickRedPointsRoomState";
 import type { PickRedPointsServerEvent } from "../../../server/messages/pickRedPointsMessages";
 import { useBgmMode } from "../../SoundProvider";
+import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom } from "../room";
 
 const serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
 const marks: Record<Suit, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
@@ -45,7 +46,7 @@ export default function RedDotPage() {
           ? await client.join<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, roomCode: requestedRoom, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema)
           : await client.create<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, maxPlayers, bots, difficulty, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema);
         if (disposed) { await room.leave(); return; }
-        roomRef.current = room; setOwnId(`player-${room.sessionId}`); setStatus("connected"); setState(room.state); setRoomCode(room.state.roomCode || room.roomId.slice(0, 6)); setMessage(mode === "join" ? "已加入撿紅點等待室，請切換準備狀態。" : "撿紅點房間已建立，分享房號邀請朋友。");
+        roomRef.current = room; setOwnId(`player-${room.sessionId}`); setStatus("connected"); setState(room.state); setRoomCode(room.state.roomCode || room.roomId.slice(0, 6)); setMessage(mode === "join" ? "已加入撿紅點等待室，等待房主開始遊戲。" : "撿紅點房間已建立，分享房號邀請朋友。");
         room.onStateChange((next) => { setState(next); setRoomCode(next.roomCode || room.roomId.slice(0, 6)); setEvents((value) => value + 1); });
         room.onMessage<PickRedPointsServerEvent>("pick-red-points:event", (event) => { if (event.type === "HAND_UPDATED") { setHand(event.cards); if (!hasStartedDealRef.current && event.cards.length > 0) { hasStartedDealRef.current = true; setDealAnimation({ active: true, visible: 0 }); } setSelectedId((current) => event.cards.some((card) => card.id === current) ? current : event.cards[0]?.id ?? ""); } if (event.type === "STATE_EVENT") setMessage(event.message); if (event.type === "ACTION_REJECTED") setMessage(event.reason); if (event.type === "ROOM_CLOSED") window.location.href = "/"; });
         room.onError((_code, error) => { setStatus("error"); setMessage(error ?? "連線發生錯誤"); });
@@ -75,8 +76,7 @@ export default function RedDotPage() {
   const targetIds = new Set((state?.legalTargetIds ?? "").split(",").filter(Boolean));
   const isMyTurn = state?.currentPlayerId === ownId;
   const selectedCard = hand.find((card) => card.id === selectedId);
-  const blackHandPendingIds = new Set((state?.blackHandPendingPlayerIds ?? "").split(",").filter(Boolean));
-  const canDecideBlackHand = phase === "black-hand-decision" && blackHandPendingIds.has(ownId);
+  const drawnCard = phase === "revealing-draw" || phase === "selecting-draw-target" ? state?.pendingCard : null;
   const countdown = Math.max(0, Math.ceil(((state?.targetDeadline || state?.turnDeadline || 0) - Date.now()) / 1000));
 
   function send(type: string, data: Record<string, unknown> = {}) { roomRef.current?.send(type, { type, actionId: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, ...data }); }
@@ -84,25 +84,42 @@ export default function RedDotPage() {
   function playSelected() { if (selectedCard && isMyTurn && phase === "playing-hand") send("PLAY_HAND_CARD", { cardId: selectedCard.id }); }
   function chooseTarget(targetCardId: string) { if (isMyTurn && targetIds.has(targetCardId)) send("SELECT_CAPTURE_TARGET", { targetCardId, pendingSource: state?.phase === "selecting-draw-target" ? "draw" : "hand" }); }
 
-  if (phase === "waiting") return <WaitingRoom state={state} players={players} ownId={ownId} isHost={isHost} roomCode={roomCode} status={status} message={message} onSend={send} onLeave={leaveRoom} />;
+  if (phase === "waiting") return <UnifiedWaitingRoom
+    gameName="撿紅點"
+    roomCode={roomCode}
+    status={status}
+    statusText={message}
+    players={players.map((player) => ({ id: player.id, seat: player.seat, nickname: player.nickname, host: player.host, ready: player.ready, type: player.type, botDifficulty: player.botDifficulty }))}
+    maxPlayers={state?.maxPlayers ?? 4}
+    ownId={ownId}
+    isHost={isHost}
+    canUseRoom={status === "connected" && !!roomRef.current}
+    canStart={isHost && players.length === (state?.maxPlayers ?? 4)}
+    allowBots
+    minPlayers={2}
+    onAddBot={(difficulty) => send("ADD_BOT", { difficulty })}
+    onStart={() => send("START_GAME")}
+    onLeave={leaveRoom}
+  />;
 
   return (
     <main className="red-dot-page">
       <RedDotHeader roomCode={roomCode} round={state?.round ?? 1} onLeave={leaveRoom} />
-      <section className="red-dot-board" aria-label="撿紅點牌桌">
-        {phase === "black-hand-decision" && <div className="red-dot-status"><strong>{canDecideBlackHand ? "你的手牌全黑" : "等待全黑手牌玩家決定"}</strong><span>{canDecideBlackHand ? "你可以保留手牌，或展示手牌並要求重新洗牌。" : message}</span>{canDecideBlackHand && <div><button type="button" onClick={() => send("KEEP_BLACK_HAND")}>保留手牌</button><button type="button" onClick={() => send("RESHUFFLE_BLACK_HAND")}>展示並重洗</button></div>}</div>}
-        {phase === "black-hand-reveal" && <div className="red-dot-status"><strong>{players.find((player) => player.id === state?.revealedBlackHandPlayerId)?.nickname ?? "玩家"} 展示全黑手牌</strong><div className="red-dot-table-cards">{Array.from(state?.revealedBlackHandCards ?? []).map((card) => <div className="red-card table-card" key={card.id}>{cardContent(card.rank as Rank, card.suit as Suit)}</div>)}</div><span>即將重新洗牌並發牌</span></div>}
-        <div className="red-dot-opponent red-top"><OpponentCard player={players.find((player) => player.seat === 1)} current={state?.currentPlayerId === players.find((player) => player.seat === 1)?.id} /></div>
-        <div className="red-dot-opponent red-left"><OpponentCard player={players.find((player) => player.seat === 2)} current={state?.currentPlayerId === players.find((player) => player.seat === 2)?.id} /></div>
-        <div className="red-dot-opponent red-right"><OpponentCard player={players.find((player) => player.seat === 3)} current={state?.currentPlayerId === players.find((player) => player.seat === 3)?.id} /></div>
+      <RoomTable gameName="撿紅點" className="red-dot-board">
+        <OpponentCard player={players.find((player) => player.seat === 1)} position="top" current={state?.currentPlayerId === players.find((player) => player.seat === 1)?.id} />
+        <OpponentCard player={players.find((player) => player.seat === 2)} position="left" current={state?.currentPlayerId === players.find((player) => player.seat === 2)?.id} />
+        <OpponentCard player={players.find((player) => player.seat === 3)} position="right" current={state?.currentPlayerId === players.find((player) => player.seat === 3)?.id} />
 
         <div className="red-dot-center">
           <div className="red-score-box"><span>目前</span><strong>{own?.score ?? 0}</strong><em>分</em></div>
           <div className="red-dot-status" aria-live="polite"><strong>{isMyTurn ? "輪到你了" : `等待 ${currentPlayer?.nickname ?? "玩家"}`}</strong><span>{message}</span></div>
           <div className="red-dot-table-cards" aria-label="桌面牌">
-            {Array.from(state?.tableCards ?? []).map((tableCard) => <button className={`red-card table-card ${targetIds.has(tableCard.id) ? "target" : ""}`} key={tableCard.id} type="button" onClick={() => chooseTarget(tableCard.id)} aria-label={`${labels[tableCard.suit as Suit]}${tableCard.rank}桌牌`}>{cardContent(tableCard.rank as Rank, tableCard.suit as Suit)}</button>)}
+            {Array.from(state?.tableCards ?? []).map((tableCard) => <button className={`red-card table-card ${cardColorClass(tableCard.suit as Suit)} ${targetIds.has(tableCard.id) ? "target" : ""}`} key={tableCard.id} type="button" onClick={() => chooseTarget(tableCard.id)} aria-label={`${labels[tableCard.suit as Suit]}${tableCard.rank}桌牌`}>{cardContent(tableCard.rank as Rank, tableCard.suit as Suit)}</button>)}
           </div>
-          <div className="red-pile"><div className="red-card-back">鬥陣</div><strong>牌堆 {state?.drawPileCount ?? 0} 張</strong></div>
+          <div className="red-pile">
+            {drawnCard && drawnCard.id ? <div className={`red-card red-drawn-card ${cardColorClass(drawnCard.suit as Suit)}`} aria-label={`翻出${labels[drawnCard.suit as Suit]}${drawnCard.rank}`}>{cardContent(drawnCard.rank as Rank, drawnCard.suit as Suit)}</div> : <div className="red-card-back">鬥陣</div>}
+            <strong>{phase === "revealing-draw" ? `${currentPlayer?.nickname ?? "玩家"} 翻牌` : `牌堆 ${state?.drawPileCount ?? 0} 張`}</strong>
+          </div>
           <div className="red-equation">{selectedCard ? `${selectedCard.rank} + 配對桌牌` : "選擇手牌開始配對"}</div>
         </div>
 
@@ -111,24 +128,21 @@ export default function RedDotPage() {
         ) : null}
 
         <div className="red-dot-self">
-          <div className="self-info"><div className="text-avatar blue">{(nickname || "我").slice(0, 1)}</div><div><strong>{nickname}</strong><span>我的牌 {hand.length} 張 · {own?.score ?? 0} 分</span></div></div>
-          <div className="red-dot-hand" aria-label="自己的手牌">{(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card) => <button className={`red-card hand-card ${card.id === selectedId ? "selected" : ""}`} key={card.id} type="button" onClick={() => setSelectedId(card.id)} aria-pressed={card.id === selectedId} aria-label={`${labels[card.suit]}${card.rank}手牌`}>{cardContent(card.rank, card.suit)}</button>)}</div>
+          <RoomSelfBadge nickname={nickname || "我"} active={isMyTurn} count={hand.length} score={own?.score ?? 0} />
+          <div className="red-dot-hand" aria-label="自己的手牌">{(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card) => <button className={`red-card hand-card ${cardColorClass(card.suit)} ${card.id === selectedId ? "selected" : ""}`} key={card.id} type="button" onClick={() => setSelectedId(card.id)} aria-pressed={card.id === selectedId} aria-label={`${labels[card.suit]}${card.rank}手牌`}>{cardContent(card.rank, card.suit)}</button>)}</div>
           <div className="red-dot-instruction">選一張手牌，再選桌牌配對</div>
         </div>
         <div className="red-dot-actions"><div className="red-countdown"><Clock3 size={20} />{countdown || "--"} 秒</div><button className="red-confirm" type="button" onClick={playSelected} disabled={!selectedCard || !isMyTurn || phase !== "playing-hand"}><Play size={22} />確認出牌</button></div>
-      </section>
+      </RoomTable>
     </main>
   );
 }
 
-function WaitingRoom({ state, players, ownId, isHost, roomCode, status, message, onSend, onLeave }: { state: PickRedPointsRoomStateSchema | null; players: PublicPickRedPlayer[]; ownId: string; isHost: boolean; roomCode: string; status: string; message: string; onSend: (type: string, data?: Record<string, unknown>) => void; onLeave: () => void }) {
-  const ownReady = players.find((player) => player.id === ownId)?.ready ?? false;
-  const emptySeats = Math.max(0, (state?.maxPlayers ?? 4) - players.length);
-  return <main className="heart-auto-shell ninety-online-shell"><RedDotHeader roomCode={roomCode} round={state?.round ?? 1} onLeave={onLeave} /><section className="heart-waiting-room ninety-waiting-room"><div className="waiting-room-title"><span className="stamp">等待室</span><h1>撿紅點 房間</h1></div><div className="waiting-room-code"><span>{formatRoom(roomCode)}</span><button type="button" onClick={() => navigator.clipboard?.writeText(roomCode)}>複製房號</button></div><div className="heart-lobby-list ninety-lobby-list">{players.map((player) => <article className={`heart-lobby-seat ${player.ready ? "ready" : ""}`} key={player.id}><span className="lobby-card-corner">{player.nickname.slice(0, 1)}</span><span>座位 {player.seat + 1}{player.host ? " · 房主" : ""}</span><strong>{player.nickname}{player.id === ownId ? "（你）" : ""}</strong><em>{player.type === "bot" ? "電腦玩家" : "真人玩家"}</em><b>{player.ready ? "已準備" : "未準備"}</b></article>)}{Array.from({ length: emptySeats }).map((_, index) => <article className="heart-lobby-seat lobby-empty-seat" key={`empty-${index}`} aria-label={`座位 ${players.length + index + 1} 等待玩家`}><span className="empty-seat-icon" aria-hidden="true">♙</span><strong>等待玩家</strong><em>空位</em></article>)}</div><div className="heart-lobby-actions"><button className={`ready-button ${ownReady ? "is-ready" : ""}`} type="button" onClick={() => onSend("SET_READY", { ready: !ownReady })}><CheckCircle2 size={22} />{ownReady ? "取消準備" : "我準備好了"}</button>{isHost && <><button className="ready-button bot-button" type="button" onClick={() => onSend("ADD_BOT", { difficulty: "普通" })} disabled={players.length >= (state?.maxPlayers ?? 4)}><Bot size={22} />加電腦補位</button><button className="play-card-button compact-action" type="button" onClick={() => onSend("START_GAME")} disabled={players.length < 2 || !players.every((player) => player.ready)}><Play size={20} />開始遊戲</button></>}</div><p className={`connection-note ${status}`}>{message}</p></section></main>;
+function RedDotHeader({ roomCode, round, onLeave }: { roomCode: string; round: number; onLeave: () => void }) { return <RoomHeader gameName="撿紅點" roomCode={roomCode} round={round} status="connected" docsHref="/docs/games/pick-red-points.md" onLeave={onLeave} />; }
+function OpponentCard({ player, position, current }: { player?: PublicPickRedPlayer; position: "top" | "left" | "right"; current: boolean }) {
+  if (!player) return null;
+  return <RoomOpponentSeat player={{ id: player.id, nickname: player.nickname, cardsRemaining: player.cardsRemaining, score: player.score, type: player.type, connected: player.connected }} position={position} active={current} />;
 }
-
-function RedDotHeader({ roomCode, round, onLeave }: { roomCode: string; round: number; onLeave: () => void }) { return <header className="game-topbar image-style"><a className="table-logo sticker-logo" href="/" aria-label="回到首頁">鬥陣</a><div className="table-title-pack inline-title"><h2>撿紅點</h2></div><div className="table-meta"><span>房號 <b>{formatRoom(roomCode)}</b></span><span>第 <b>{round}</b> 局</span></div><div className="topbar-actions"><a href="/docs/games/pick-red-points.md"><BookOpen size={19} />玩法</a><button className="leave" type="button" onClick={onLeave}><LogOut size={19} />離開牌局</button></div></header>; }
-function OpponentCard({ player, current }: { player?: PublicPickRedPlayer; current: boolean }) { return <article className={`red-opponent-card ${current ? "active" : ""}`}>{player ? <><div className="text-avatar yellow">{player.nickname.slice(0, 1)}</div><div><strong>{player.nickname}</strong><span>{player.cardsRemaining} 張 · {player.score} 分</span><em>{player.type === "bot" ? "電腦" : "真人"}</em></div></> : <><Users /><strong>等待玩家</strong></>}</article>; }
 function cardContent(rank: Rank, suit: Suit) { return <><span>{rank}</span><em>{marks[suit]}</em></>; }
-function formatRoom(value: string) { const clean = value.replace(/\D/g, "").slice(0, 6).padEnd(6, "-"); return `${clean.slice(0, 3)} ${clean.slice(3)}`; }
+function cardColorClass(suit: Suit) { return suit === "hearts" || suit === "diamonds" ? "red-suit" : "black-suit"; }
 function getTabClientId(game: string) { const key = `poker:${game}:client-id`; const existing = window.sessionStorage.getItem(key); if (existing) return existing; const id = `${game}-${crypto.randomUUID()}`; window.sessionStorage.setItem(key, id); return id; }

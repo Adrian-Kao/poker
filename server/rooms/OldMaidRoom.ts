@@ -143,10 +143,8 @@ export class OldMaidRoomController {
     this.requireFreshAction(actionId);
     this.requireHost(sessionId);
     if (this.gameState) throw new Error("Game already started.");
-    if (this.lobbyPlayers.length < 3) throw new Error("Old Maid needs at least 3 players.");
-    if (!this.lobbyPlayers.every((player) => player.connected && player.ready)) {
-      throw new Error("All joined players must be connected and ready.");
-    }
+    if (this.lobbyPlayers.length !== this.publicState.maxPlayers) throw new Error("All seats must be filled.");
+    if (!this.lobbyPlayers.every((player) => player.connected)) throw new Error("All players must be connected.");
 
     const setup = createOldMaidOpeningSetup({
       players: this.lobbyPlayers.map((player) => ({
@@ -211,7 +209,7 @@ export class OldMaidRoomController {
 
   requestClose(sessionId: string, actionId: string) {
     this.requireFreshAction(actionId);
-    this.requireHost(sessionId);
+    this.requireHuman(sessionId);
     this.cancelOpening();
     this.cancelTurn();
   }

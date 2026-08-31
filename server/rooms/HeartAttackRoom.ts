@@ -3,7 +3,6 @@ import {
   RESULT_NOTICE_MS,
   RECONNECT_WINDOW_SECONDS,
   advanceAutoPlay,
-  calculateBotReaction,
   createHeartAttackGame,
   resolveRoundResult,
   resolveSlapWindow,
@@ -12,6 +11,7 @@ import {
   type CreateHeartAttackPlayerInput,
   type HeartAttackState
 } from "../../lib/games/heart-attack";
+import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import { HeartAttackRoomStateSchema, PublicHeartAttackPlayer, syncPublicState } from "../schema/HeartAttackRoomState";
 import type { HeartAttackClientMessage, HeartAttackServerEvent } from "../messages/heartAttackMessages";
 import { toPenaltyNotice } from "../messages/heartAttackMessages";
@@ -43,7 +43,6 @@ export class HeartAttackRoomController {
   private gameState: HeartAttackState | null = null;
   private autoTask: ScheduledTask | null = null;
   private slapResolutionTask: ScheduledTask | null = null;
-  private botTasks: ScheduledTask[] = [];
   private actionIds = new Set<string>();
   private botCounter = 1;
 
@@ -124,11 +123,17 @@ export class HeartAttackRoomController {
     if (this.gameState) throw new Error("Cannot add bot after start.");
     if (this.lobbyPlayers.length >= this.publicState.maxPlayers) throw new Error("Room is full.");
 
-    const botId = `bot-${this.botCounter}`;
+    const botNumber = this.botCounter;
+    const botId = `bot-${botNumber}`;
     this.botCounter += 1;
     this.lobbyPlayers.push({
       id: botId,
-      nickname: `電腦${this.botCounter - 1}`,
+      nickname: getBotPlayerNameForDifficulty(
+        botNumber,
+        difficulty,
+        this.random,
+        this.lobbyPlayers.map((player) => player.nickname)
+      ),
       type: "bot",
       botDifficulty: difficulty,
       connected: true,
@@ -145,8 +150,10 @@ export class HeartAttackRoomController {
     this.syncPublic();
   }
 
-  startGame(actionId: string) {
+  startGame(sessionId: string, actionId: string) {
     this.requireFreshAction(actionId);
+    const host = this.lobbyPlayers.find((player) => player.type === "human");
+    if (!host || host.sessionId !== sessionId) throw new Error("Only the host can start the game.");
     this.startGameIfReady();
   }
 
@@ -218,26 +225,13 @@ export class HeartAttackRoomController {
     this.cancelTimers();
   }
 
-  private maybeAutoStart() {
-    if (!this.canStart()) return;
-    const actionId = `auto-start-${this.scheduler.now()}-${this.lobbyPlayers.length}`;
-    this.actionIds.add(actionId);
-    this.createGame();
-  }
+  private maybeAutoStart() {}
 
   private startGameIfReady() {
     if (this.gameState) throw new Error("Game already started.");
-    if (this.lobbyPlayers.length < 3) throw new Error("Heart attack needs at least 3 players.");
-    if (!this.allJoinedPlayersReady()) throw new Error("All joined players must be ready.");
+    if (this.lobbyPlayers.length !== this.publicState.maxPlayers) throw new Error("All seats must be filled.");
+    if (!this.lobbyPlayers.every((player) => player.type === "bot" || player.connected)) throw new Error("All players must be connected.");
     this.createGame();
-  }
-
-  private canStart() {
-    return !this.gameState && this.lobbyPlayers.length >= 3 && this.allJoinedPlayersReady();
-  }
-
-  private allJoinedPlayersReady() {
-    return this.lobbyPlayers.length > 0 && this.lobbyPlayers.every((player) => player.type === "bot" || (player.connected && player.ready));
   }
 
   private createGame() {
@@ -278,28 +272,6 @@ export class HeartAttackRoomController {
     if (dueAt !== null) {
       this.autoTask = this.scheduler.setTimeout(() => this.processDue(), Math.max(0, dueAt - now));
     }
-  }
-
-  private scheduleBotSlaps(triggerAt: number) {
-    this.clearBotTimers();
-    if (!this.gameState) return;
-    const latest = this.gameState.centerPile.at(-1);
-    if (!latest) return;
-
-    this.gameState.players
-      .filter((player) => player.type === "bot")
-      .forEach((bot) => {
-        const reaction = calculateBotReaction(bot.botDifficulty ?? "normal", this.random, true);
-        if (reaction === null) return;
-        const actionId = `bot-${bot.id}-${this.gameState?.turnNumber ?? 0}-${reaction}`;
-        const task = this.scheduler.setTimeout(() => {
-          if (!this.gameState || this.gameState.phase !== "slap-window") return;
-          this.requireFreshAction(actionId);
-          this.gameState = submitSlap(this.gameState, bot.id, triggerAt + reaction);
-          this.syncPublic();
-        }, reaction);
-        this.botTasks.push(task);
-      });
   }
 
   private emitRoundResultIfNeeded(before: HeartAttackState) {
@@ -350,12 +322,6 @@ export class HeartAttackRoomController {
     this.scheduler.clear(this.slapResolutionTask);
     this.autoTask = null;
     this.slapResolutionTask = null;
-    this.clearBotTimers();
-  }
-
-  private clearBotTimers() {
-    this.botTasks.forEach((task) => this.scheduler.clear(task));
-    this.botTasks = [];
   }
 }
 
@@ -418,7 +384,7 @@ export class HeartAttackRoom extends Room {
           this.controller.setReady(client.sessionId, message.actionId, message.ready);
           break;
         case "START_GAME":
-          this.controller.startGame(message.actionId);
+          this.controller.startGame(client.sessionId, message.actionId);
           break;
         case "ADD_BOT":
           this.controller.addBot(message.actionId, message.difficulty);
@@ -465,7 +431,7 @@ function createRoomCode(random: () => number) {
 
 function clampMaxPlayers(value: number) {
   if (!Number.isFinite(value)) return 4;
-  return Math.max(3, Math.min(8, Math.floor(value)));
+  return Math.max(2, Math.min(8, Math.floor(value)));
 }
 
 function sanitizeNickname(value: string) {

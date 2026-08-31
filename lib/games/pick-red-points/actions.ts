@@ -1,4 +1,4 @@
-import { drawPickRedCard, playPickRedHandCard, resolvePickRedTargetTimeout, selectPickRedCaptureTarget } from "./engine";
+import { drawPickRedCard, playPickRedHandCard, resolvePickRedDrawReveal, resolvePickRedTargetTimeout, selectPickRedCaptureTarget } from "./engine";
 import type { PickRedPointsAction, PickRedPointsState } from "./types";
 
 /** 將玩家送出的出牌或選牌動作交給規則引擎，回傳套用動作後的新狀態。 */
@@ -10,6 +10,7 @@ export function applyPickRedPointsAction(state: PickRedPointsState, action: Pick
 /** 推進不需要玩家輸入的階段，例如系統翻牌或目標選擇逾時。 */
 export function advancePickRedPoints(state: PickRedPointsState, now = Date.now()): PickRedPointsState {
   if (state.phase === "drawing") return drawPickRedCard(state, state.currentPlayerId ?? "", now);
+  if (state.phase === "revealing-draw") return resolvePickRedDrawReveal(state, now);
   if (state.phase === "selecting-hand-target" || state.phase === "selecting-draw-target") return resolvePickRedTargetTimeout(state, now);
   return state;
 }

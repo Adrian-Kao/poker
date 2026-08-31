@@ -67,3 +67,12 @@ The Ninety-Nine backend is server authoritative. The server owns hidden hands, l
 - Public schema: `server/schema/PickRedPointsRoomState.ts`
 
 撿紅點使用伺服器權威配對與計分，公開狀態只提供桌牌、分數、剩餘手牌數與抽牌堆張數；完整手牌只透過個人事件傳送。
+
+## Sevens Rules Engine
+
+- Game page: `app/games/sevens/page.tsx`
+- Rules: `docs/games/sevens.md`
+- Engine: `lib/games/sevens`
+- Tests: `tests/sevens/engine.test.ts`
+
+排七目前提供經典四人與雙副牌競速兩種本機前端示範模式。獨立 TypeScript 引擎負責洗牌、發牌、首位玩家、合法出牌、蓋牌限制、回合方向、計分、排名及電腦玩家動作；前端只透過規則引擎提交動作。正式多人版本仍需將相同引擎接到伺服器權威房間。
