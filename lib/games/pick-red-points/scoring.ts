@@ -16,6 +16,12 @@ export function calculatePickRedPlayerScore(cards: Card[], playerCount: number):
   return cards.reduce((total, card) => total + calculatePickRedCardScore(card, playerCount), 0);
 }
 
+/** 計算牌局進行中的牌面基礎分，不提前套用雙紅五轉帳。 */
+export function calculatePickRedBaseScores(capturedCards: Record<string, Card[]>, playerIds: string[]): Record<string, number> {
+  const playerCount = playerIds.length;
+  return Object.fromEntries(playerIds.map((playerId) => [playerId, calculatePickRedPlayerScore(capturedCards[playerId] ?? [], playerCount)]));
+}
+
 /** 判斷同一次配對取得的兩張牌是否都是紅色 5。 */
 export function isDoubleRedFiveCapture(first: Card, second: Card): boolean {
   return first.rank === "5" && second.rank === "5" && isRed(first) && isRed(second);
@@ -24,9 +30,7 @@ export function isDoubleRedFiveCapture(first: Card, second: Card): boolean {
 /** 計算牌局進行中的分數，包含四人局雙紅五的實際支付，但不執行零分逆轉。 */
 export function calculatePickRedScores(capturedCards: Record<string, Card[]>, playerIds: string[]): Record<string, number> {
   const playerCount = playerIds.length;
-  const scores = Object.fromEntries(
-    playerIds.map((playerId) => [playerId, calculatePickRedPlayerScore(capturedCards[playerId] ?? [], playerCount)])
-  );
+  const scores = calculatePickRedBaseScores(capturedCards, playerIds);
 
   if (playerCount !== 4) return scores;
 
@@ -44,6 +48,25 @@ export function calculatePickRedScores(capturedCards: Record<string, Card[]>, pl
   }
 
   return scores;
+}
+
+/** 計算雙紅五的帳面待結算分；支付能力只在牌局結束時判定。 */
+export function calculatePickRedScoreAdjustments(capturedCards: Record<string, Card[]>, playerIds: string[]): Record<string, number> {
+  const adjustments = Object.fromEntries(playerIds.map((playerId) => [playerId, 0]));
+  if (playerIds.length !== 4) return adjustments;
+
+  for (const capturerId of playerIds) {
+    const cards = capturedCards[capturerId] ?? [];
+    for (let index = 0; index + 1 < cards.length; index += 2) {
+      if (!isDoubleRedFiveCapture(cards[index], cards[index + 1])) continue;
+      adjustments[capturerId] += 30;
+      for (const playerId of playerIds) {
+        if (playerId !== capturerId) adjustments[playerId] -= 10;
+      }
+    }
+  }
+
+  return adjustments;
 }
 
 /** 完成最終結算；若有人基礎分為零，保留零分者分數並反轉其他玩家分數。 */

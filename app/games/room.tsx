@@ -18,6 +18,7 @@ export type RoomPlayer = {
   cardsRemaining?: number;
   capturedCount?: number;
   score?: number;
+  scoreAdjustment?: number;
   status?: string;
 };
 
@@ -82,17 +83,17 @@ export function RoomTable(props: ResponsiveGameLayoutProps) {
   return <ResponsiveGameLayout {...props} />;
 }
 
-export function RoomOpponentSeat({ player, position, active = false, passed = false }: { player?: Pick<RoomPlayer, "id" | "nickname" | "type" | "connected" | "cardsRemaining" | "capturedCount" | "score" | "status">; position: RoomSeatPosition; active?: boolean; passed?: boolean }) {
+export function RoomOpponentSeat({ player, position, active = false, passed = false, cardBackMax = 5, roleInline = false }: { player?: Pick<RoomPlayer, "id" | "nickname" | "type" | "connected" | "cardsRemaining" | "capturedCount" | "score" | "scoreAdjustment" | "status">; position: RoomSeatPosition; active?: boolean; passed?: boolean; cardBackMax?: number; roleInline?: boolean }) {
   if (!player) return null;
   const count = player.cardsRemaining ?? 0;
   return (
     <article className={`bluff-opponent-seat room-opponent-seat ${position} ${active ? "active" : ""} ${player.status === "finished" ? "finished" : ""}`}>
       <div className="bluff-player-badge">
         <div className="bluff-avatar">{player.nickname.trim().slice(0, 1) || "玩"}</div>
-        <div><strong style={{ fontSize: playerNameFontSize(player.nickname) }}>{player.nickname}</strong><span>{count} 張牌{typeof player.capturedCount === "number" ? `　吃 ${player.capturedCount} 張` : ""}{typeof player.score === "number" ? `　${player.score} 分` : ""}</span></div>
-        <em>{player.type === "bot" ? "電腦" : player.connected === false ? "重新連線中" : "真人"}</em>
+        <div><div className={roleInline ? "room-player-name-line" : ""}><strong style={{ fontSize: playerNameFontSize(player.nickname) }}>{player.nickname}</strong>{roleInline ? <em>{player.type === "bot" ? "電腦" : player.connected === false ? "重新連線中" : "真人"}</em> : null}</div><span>{count} 張牌{typeof player.capturedCount === "number" ? `　吃 ${player.capturedCount} 張` : ""}{typeof player.score === "number" ? <>　{player.score} 分<ScoreAdjustment value={player.scoreAdjustment} /></> : ""}</span></div>
+        {!roleInline ? <em>{player.type === "bot" ? "電腦" : player.connected === false ? "重新連線中" : "真人"}</em> : null}
       </div>
-      <RoomCardBacks count={count} />
+      <RoomCardBacks count={count} max={cardBackMax} />
       {active ? <b className="room-seat-state">目前回合</b> : null}
       {passed ? <b className="room-seat-state pass">PASS</b> : null}
     </article>
@@ -101,16 +102,22 @@ export function RoomOpponentSeat({ player, position, active = false, passed = fa
 
 export function RoomCardBacks({ count, max = 5 }: { count: number; max?: number }) {
   if (count <= 0) return null;
-  return <div className="bluff-card-back-stack room-card-backs" aria-hidden="true">{Array.from({ length: Math.min(max, count) }).map((_, index) => <i key={index} />)}</div>;
+  const visibleCount = Math.min(max, count);
+  return <div className="bluff-card-back-stack room-card-backs" aria-hidden="true">{Array.from({ length: visibleCount }).map((_, index) => <i key={index} style={{ left: visibleCount === 1 ? 0 : `${index / (visibleCount - 1) * 70}%`, transform: `rotate(${visibleCount === 1 ? 0 : -5 + index / (visibleCount - 1) * 10}deg)` }} />)}</div>;
 }
 
-export function RoomSelfBadge({ nickname, active = false, count, capturedCount, score }: { nickname: string; active?: boolean; count?: number; capturedCount?: number; score?: number }) {
+export function RoomSelfBadge({ nickname, active = false, count, capturedCount, score, scoreAdjustment }: { nickname: string; active?: boolean; count?: number; capturedCount?: number; score?: number; scoreAdjustment?: number }) {
   return (
     <div className={`bluff-self-badge room-self-badge ${active ? "active" : ""}`}>
       <div className="bluff-avatar yellow">{nickname.trim().slice(0, 1) || "你"}</div>
-      <div><span>你的手牌</span><strong style={{ fontSize: playerNameFontSize(nickname) }}>{nickname}</strong>{typeof count === "number" ? <em>{count} 張牌{typeof capturedCount === "number" ? `　吃 ${capturedCount} 張` : ""}{typeof score === "number" ? `　${score} 分` : ""}</em> : null}</div>
+      <div><span>你的手牌</span><strong style={{ fontSize: playerNameFontSize(nickname) }}>{nickname}</strong>{typeof count === "number" ? <em>{count} 張牌{typeof capturedCount === "number" ? `　吃 ${capturedCount} 張` : ""}{typeof score === "number" ? <>　{score} 分<ScoreAdjustment value={scoreAdjustment} /></> : ""}</em> : null}</div>
     </div>
   );
+}
+
+function ScoreAdjustment({ value }: { value?: number }) {
+  if (!value) return null;
+  return <small className={`room-score-adjustment ${value > 0 ? "positive" : "negative"}`}>{value > 0 ? "+" : ""}{value}</small>;
 }
 
 function playerNameFontSize(nickname: string) {

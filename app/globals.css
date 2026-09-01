@@ -515,12 +515,13 @@ a {
     align-content: start;
     height: clamp(230px, 28vw, 290px);
     min-width: 0;
-    overflow: hidden;
-    padding: 8px;
+    overflow: visible;
+    padding: 20px 24px 26px;
 }
 
 .red-dot-table-cards.overflowing {
     overflow: auto;
+    padding: 20px 24px 26px;
 }
 
 .red-card {
@@ -8510,6 +8511,171 @@ body {
     }
 }
 
+/* Pick red points all-black decision and public verification. */
+.red-dot-black-hand-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(5, 18, 58, .78);
+    backdrop-filter: blur(5px);
+}
+
+.red-dot-black-hand-panel {
+    width: min(880px, 100%);
+    max-height: calc(100% - 24px);
+    overflow: auto;
+    padding: clamp(20px, 4vw, 38px);
+    border: 6px solid var(--ink);
+    border-radius: 26px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 10px 10px 0 var(--ink);
+    text-align: center;
+}
+
+.red-dot-black-hand-panel h2 {
+    margin: 14px 0 8px;
+    font-size: clamp(1.65rem, 4vw, 3rem);
+}
+
+.red-dot-black-hand-panel p {
+    margin: 0 auto 20px;
+    font-weight: 850;
+}
+
+.red-dot-black-hand-preview,
+.red-dot-black-hand-reveal-cards {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 18px 10px 22px;
+}
+
+.black-hand-preview-card,
+.black-hand-reveal-card {
+    flex: 0 0 clamp(58px, 8vw, 88px);
+    width: clamp(58px, 8vw, 88px);
+    aspect-ratio: .72;
+    padding: 8px;
+    cursor: default;
+}
+
+.red-dot-black-hand-reveal-cards {
+    justify-content: center;
+    flex-wrap: wrap;
+    overflow: visible;
+}
+
+.black-hand-reveal-card {
+    opacity: 0;
+    animation: black-hand-card-reveal 420ms cubic-bezier(.2, .8, .25, 1) forwards;
+}
+
+@keyframes black-hand-card-reveal {
+    from { opacity: 0; transform: translateY(-24px) rotateY(90deg) scale(.82); }
+    to { opacity: 1; transform: translateY(0) rotateY(0) scale(1); }
+}
+
+.red-dot-black-hand-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.red-dot-black-hand-actions button {
+    min-height: 58px;
+    padding: 10px 20px;
+    border: 4px solid var(--ink);
+    border-radius: 14px;
+    background: var(--yellow);
+    color: var(--ink);
+    box-shadow: 5px 5px 0 var(--ink);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 950;
+}
+
+.red-dot-black-hand-actions button.reshuffle {
+    background: #f25b52;
+    color: white;
+}
+
+.red-dot-black-hand-waiting {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+}
+
+.red-dot-black-hand-waiting i {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--blue);
+    animation: black-hand-wait 900ms ease-in-out infinite alternate;
+}
+
+.red-dot-black-hand-waiting i:nth-child(2) { animation-delay: 150ms; }
+.red-dot-black-hand-waiting i:nth-child(3) { animation-delay: 300ms; }
+
+@keyframes black-hand-wait {
+    to { opacity: .25; transform: translateY(-7px); }
+}
+
+.red-dot-black-hand-progress {
+    height: 12px;
+    overflow: hidden;
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    background: white;
+}
+
+.red-dot-black-hand-progress i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--yellow);
+    transform-origin: left;
+    animation: black-hand-progress 3s linear forwards;
+}
+
+@keyframes black-hand-progress {
+    to { transform: scaleX(0); }
+}
+
+@media (max-width: 767px) {
+    .red-dot-black-hand-overlay {
+        position: fixed;
+        padding: max(10px, var(--game-safe-top)) max(8px, var(--game-safe-right)) max(10px, var(--game-safe-bottom)) max(8px, var(--game-safe-left));
+    }
+
+    .red-dot-black-hand-panel {
+        max-height: 90dvh;
+        padding: 18px 12px;
+        border-width: 5px;
+    }
+
+    .red-dot-black-hand-preview {
+        justify-content: flex-start;
+    }
+
+    .red-dot-black-hand-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .red-dot-black-hand-actions button {
+        width: 100%;
+    }
+}
+
 /* Pick red points: stable card geometry and compact player information. */
 .shared-room-table.red-dot-board {
     --red-dot-card-width: clamp(76px, 7vw, 112px);
@@ -8557,12 +8723,53 @@ body {
     font-size: clamp(.62rem, .85vw, .78rem);
 }
 
+.shared-room-table.red-dot-board .room-score-adjustment {
+    display: inline-block;
+    margin-left: 3px;
+    padding: 1px 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .2);
+    color: white;
+    font-size: .78em;
+    font-style: normal;
+    font-weight: 1000;
+    line-height: 1.1;
+    vertical-align: .06em;
+    white-space: nowrap;
+}
+
 .shared-room-table.red-dot-board .room-opponent-seat .bluff-player-badge {
     width: 330px;
     height: 112px;
     min-width: 0;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     box-sizing: border-box;
+}
+
+.shared-room-table.red-dot-board .room-player-name-line {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.shared-room-table.red-dot-board .room-player-name-line strong {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.shared-room-table.red-dot-board .room-player-name-line em {
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding: 2px 6px;
+    font-size: .64rem;
+    line-height: 1.1;
+}
+
+.shared-room-table.red-dot-board .bottom-card-confirmation .bottom-confirm-card {
+    width: var(--red-dot-card-width);
+    height: var(--red-dot-card-height);
+    margin: 14px auto 0;
 }
 
 .shared-room-table.red-dot-board .room-self-badge {
@@ -8580,7 +8787,7 @@ body {
 
 .shared-room-table.red-dot-board .red-dot-center {
     grid-template-columns: minmax(0, 1fr) minmax(120px, 180px);
-    grid-template-rows: auto 368px auto;
+    grid-template-rows: auto 420px auto;
 }
 
 .shared-room-table.red-dot-board .red-dot-status,
@@ -8604,9 +8811,9 @@ body {
     grid-row: 2;
     grid-template-columns: repeat(4, var(--red-dot-card-width));
     grid-template-rows: repeat(2, var(--red-dot-card-height));
-    height: 368px;
+    height: 380px;
     align-content: start;
-    padding: 18px 20px 22px;
+    padding: 24px 28px 30px;
 }
 
 .shared-room-table.red-dot-board .red-pile {
@@ -8683,8 +8890,8 @@ body {
 
     .shared-room-table.red-dot-board .red-dot-table-cards {
         grid-template-rows: repeat(2, var(--red-dot-card-height));
-        height: 308px;
-        padding: 16px 14px 20px;
+        height: 320px;
+        padding: 20px 18px 24px;
     }
 
     .shared-room-table.red-dot-board .red-dot-self {
@@ -8723,8 +8930,8 @@ body {
     .shared-room-table.red-dot-board .red-dot-table-cards {
         grid-template-columns: repeat(4, var(--red-dot-card-width));
         grid-template-rows: repeat(2, var(--red-dot-card-height));
-        height: 240px;
-        padding: 12px 8px 16px;
+        height: 250px;
+        padding: 16px 12px 20px;
     }
 
     .shared-room-table.red-dot-board .red-dot-self-info {

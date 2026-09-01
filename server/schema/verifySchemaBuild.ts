@@ -1,6 +1,7 @@
 import { ArraySchema, Encoder, MapSchema, Schema } from "@colyseus/schema";
 import { getLegalPlays as getBigTwoLegalPlays } from "../../lib/games/big-two";
 import { getLegalActions } from "../../lib/games/ninety-nine";
+import { PICK_RED_BOTTOM_CARD_CONFIRM_MS } from "../../lib/games/pick-red-points";
 import { getLegalPlays as getSevensLegalPlays } from "../../lib/games/sevens";
 import { BigTwoRoomController } from "../rooms/BigTwoRoom";
 import { BluffRoomController } from "../rooms/BluffRoom";
@@ -194,7 +195,7 @@ function verifyPickRedPoints() {
   lifecycle("pick_red_points", controller, [
     () => { controller.addHuman("s1", "P1", "c1"); controller.addHuman("s2", "P2", "c2"); },
     () => controller.startGame("s1", "start"),
-    () => { const state = controller.state!; const playerId = state.currentPlayerId; if (!playerId) throw new Error("pick_red_points has no current player."); controller.playHand(playerId.replace("player-", ""), "schema-play", state.hands[playerId][0].id); }
+    () => { scheduler.advanceBy(PICK_RED_BOTTOM_CARD_CONFIRM_MS); const state = controller.state!; const playerId = state.currentPlayerId; if (!playerId) throw new Error("pick_red_points has no current player."); controller.playHand(playerId.replace("player-", ""), "schema-play", state.hands[playerId][0].id); }
   ], scheduler);
 }
 

@@ -1,7 +1,7 @@
 import type { Card, Rank } from "../core/cards";
 import { PICK_RED_MAX_PLAYERS, PICK_RED_MIN_PLAYERS, TARGET_SELECTION_MS } from "./constants";
 import { createPickRedPointsDeck } from "./deck";
-import { calculatePickRedCardScore, calculatePickRedScores, finalizePickRedScores, getPickRedWinningScore } from "./scoring";
+import { calculatePickRedBaseScores, calculatePickRedCardScore, calculatePickRedScores, finalizePickRedScores, getPickRedWinningScore } from "./scoring";
 import type { CreatePickRedPointsPlayerInput, PickRedPointsPlayer, PickRedPointsState, TableCard, VisiblePickRedPointsState } from "./types";
 
 /** 建立新牌局、發出手牌與桌牌，並在正式開局前檢查全黑手牌資格。 */
@@ -87,7 +87,7 @@ export function drawPickRedCard(state: PickRedPointsState, playerId: string, _no
   if (!card) return finishPickRedTurn({ ...state, phase: "turn-result", pendingCard: null }, "抽牌堆已空");
   const next = { ...state, drawPile: state.drawPile.slice(1), turnNumber: state.turnNumber + 1 };
   const legalTargets = getMatchingTableCards(card, next.tableCards);
-  return { ...next, phase: "revealing-draw", pendingCard: { card, source: "draw", ownerPlayerId: playerId }, legalTargetIds: legalTargets.map((item) => item.card.id), targetDeadline: null, lastResult: `翻出 ${card.rank}` };
+  return { ...next, phase: "revealing-draw", pendingCard: { card, source: "draw", ownerPlayerId: playerId }, legalTargetIds: legalTargets.map((item) => item.card.id), targetDeadline: null, lastResult: `翻出 ${pickRedSuitMark(card)}${card.rank}` };
 }
 
 /** 結束翻牌展示；無配對就落桌、單一配對自動收牌，多個配對則等待玩家選擇。 */
@@ -106,10 +106,11 @@ export function capturePickRedPair(state: PickRedPointsState, playerId: string, 
   const target = state.tableCards.find((item) => item.card.id === targetCardId);
   if (!target || !isValidPickRedPair(pending.card, target.card)) throw new Error("INVALID_CAPTURE_PAIR");
   const capturedCards = { ...state.capturedCards, [playerId]: [...state.capturedCards[playerId], pending.card, target.card] };
-  const scores = calculatePickRedScores(capturedCards, state.players.map((player) => player.id));
+  const scores = calculatePickRedBaseScores(capturedCards, state.players.map((player) => player.id));
   const scoreChange = scores[playerId] - (state.scores[playerId] ?? 0);
   const hands = pending.source === "hand" ? { ...state.hands, [playerId]: state.hands[playerId].filter((card) => card.id !== pending.card.id) } : state.hands;
-  const next = { ...state, hands, phase: pending.source === "hand" ? "drawing" as const : "turn-result" as const, tableCards: state.tableCards.filter((item) => item.card.id !== targetCardId), capturedCards, scores, pendingCard: null, legalTargetIds: [], targetDeadline: null, lastResult: `撿到${pending.card.rank}與${target.card.rank}，${scoreChange >= 0 ? "+" : ""}${scoreChange}分` };
+  const nickname = state.players.find((player) => player.id === playerId)?.nickname ?? "玩家";
+  const next = { ...state, hands, phase: pending.source === "hand" ? "drawing" as const : "turn-result" as const, tableCards: state.tableCards.filter((item) => item.card.id !== targetCardId), capturedCards, scores, pendingCard: null, legalTargetIds: [], targetDeadline: null, lastResult: `${nickname}：${pickRedSuitMark(pending.card)}${pending.card.rank}吃${pickRedSuitMark(target.card)}${target.card.rank}，${scoreChange >= 0 ? "+" : ""}${scoreChange}分` };
   return pending.source === "hand" ? next : finishPickRedTurn(next);
 }
 
@@ -134,8 +135,9 @@ export function resolvePickRedTargetTimeout(state: PickRedPointsState, now = Dat
 export function getPickRedCaptureGain(state: PickRedPointsState, playerId: string, playedCard: Card, tableCard: Card): number {
   const playerIds = state.players.map((player) => player.id);
   const capturedCards = { ...state.capturedCards, [playerId]: [...(state.capturedCards[playerId] ?? []), playedCard, tableCard] };
+  const currentSettledScores = calculatePickRedScores(state.capturedCards, playerIds);
   const nextScores = calculatePickRedScores(capturedCards, playerIds);
-  return (nextScores[playerId] ?? 0) - (state.scores[playerId] ?? 0);
+  return (nextScores[playerId] ?? 0) - (currentSettledScores[playerId] ?? 0);
 }
 
 /** 依座位順序取得下一位玩家，最後一位之後回到第一位。 */
@@ -158,6 +160,11 @@ export function getVisiblePickRedState(state: PickRedPointsState): VisiblePickRe
 
 /** 完成目前回合；若牌局已清空則執行最終計分與贏家判定。 */
 function finishPickRedTurn(state: PickRedPointsState, result?: string): PickRedPointsState { if (isPickRedGameFinished(state)) { const playerIds = state.players.map((player) => player.id); const final = finalizePickRedScores(state.capturedCards, playerIds); const finalState = { ...state, scores: final.scores }; const winners = getPickRedWinners(finalState); return { ...finalState, phase: "finished", currentPlayerId: null, winners, lastResult: result ?? "本局結束" }; } return { ...state, phase: "playing-hand", currentPlayerId: getNextPickRedPlayer(state), roundNumber: state.roundNumber + 1, lastResult: result ?? state.lastResult }; }
+
+/** 將牌的花色轉成可由 CSS 控制顏色的文字符號，避免使用固定彩色的 emoji。 */
+function pickRedSuitMark(card: Card): string {
+  return { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" }[card.suit];
+}
 /** 驗證 actionId 存在且尚未處理，避免同一操作重複執行。 */
 function assertAction(state: PickRedPointsState, actionId: string) { if (!actionId) throw new Error("Missing actionId."); if (state.processedActionIds.includes(actionId)) throw new Error("ACTION_ALREADY_PROCESSED"); }
 /** 將 actionId 記錄到新狀態，供後續重複動作檢查。 */

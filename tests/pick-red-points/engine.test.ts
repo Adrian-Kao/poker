@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { advancePickRedPoints, calculatePickRedCardScore, calculatePickRedScores, chooseBestPickRedHandCard, chooseBestPickRedTarget, choosePickRedBotAction, createPickRedPointsGame, finalizePickRedScores, getPickRedDealCount, getPickRedWinners, getPickRedWinningScore, isAllBlackPickRedHand, isValidPickRedPair, keepPickRedBlackHand, playPickRedHandCard, requestPickRedBlackHandReshuffle, selectPickRedCaptureTarget } from "../../lib/games/pick-red-points";
+import { advancePickRedPoints, calculatePickRedCardScore, calculatePickRedScoreAdjustments, calculatePickRedScores, chooseBestPickRedHandCard, chooseBestPickRedTarget, choosePickRedBotAction, createPickRedPointsGame, finalizePickRedScores, getPickRedDealCount, getPickRedWinners, getPickRedWinningScore, isAllBlackPickRedHand, isValidPickRedPair, keepPickRedBlackHand, playPickRedHandCard, requestPickRedBlackHandReshuffle, selectPickRedCaptureTarget } from "../../lib/games/pick-red-points";
 import type { Card } from "../../lib/games/core/cards";
 
 const players = [{ id: "p1", nickname: "阿德" }, { id: "p2", nickname: "小美" }];
@@ -53,6 +53,7 @@ test("automatically captures when a played hand card has exactly one target", ()
   assert.equal(captured.pendingCard, null);
   assert.equal(captured.hands.p1.length, 0);
   assert.deepEqual(captured.capturedCards.p1.map((capturedCard) => capturedCard.id), ["hand-5", "table-5"]);
+  assert.match(captured.lastResult, /♥5吃♣5/);
 });
 
 test("does not reveal the draw-pile card until the hand card has finished resolving", () => {
@@ -66,6 +67,7 @@ test("does not reveal the draw-pile card until the hand card has finished resolv
   assert.equal(afterDraw.phase, "revealing-draw");
   assert.equal(afterDraw.pendingCard?.source, "draw");
   assert.equal(afterDraw.drawPile.length, custom.drawPile.length - 1);
+  assert.match(afterDraw.lastResult, /^翻出 [♣♦♥♠]/);
 });
 
 test("bot prioritizes the capture with the greatest actual score gain", () => {
@@ -147,14 +149,39 @@ test("four-player double red five gives 40 points when every opponent can pay 10
   assert.deepEqual(scores, { p1: 40, p2: 10, p3: 10, p4: 0 });
 });
 
+test("double red five remains a pending adjustment until the game finishes", () => {
+  const fourPlayers = [...players, { id: "p3", nickname: "三" }, { id: "p4", nickname: "四" }];
+  const state = createPickRedPointsGame({ players: fourPlayers, random: () => 0.2 });
+  const custom = {
+    ...state,
+    phase: "playing-hand" as const,
+    currentPlayerId: "p1",
+    hands: { ...state.hands, p1: [card("hand-h5", "5", "hearts")] },
+    tableCards: [{ card: card("table-d5", "5", "diamonds"), enteredAtTurn: 0, tableOrder: 0 }],
+    capturedCards: {
+      p1: [],
+      p2: [card("p2-ha", "A", "hearts")],
+      p3: [card("p3-da", "A", "diamonds")],
+      p4: [card("p4-sa", "A", "spades")]
+    },
+    scores: { p1: 0, p2: 20, p3: 20, p4: 10 }
+  };
+  const captured = playPickRedHandCard(custom, "p1", "hand-h5", 100, "pending-double-red-five");
+
+  assert.deepEqual(captured.scores, { p1: 10, p2: 20, p3: 20, p4: 10 });
+  assert.deepEqual(calculatePickRedScoreAdjustments(captured.capturedCards, fourPlayers.map((player) => player.id)), { p1: 30, p2: -10, p3: -10, p4: -10 });
+});
+
 test("double red five only takes the points each opponent can afford", () => {
-  const scores = calculatePickRedScores({
+  const capturedCards = {
     p1: [card("h5", "5", "hearts"), card("d5", "5", "diamonds")],
     p2: [card("h7", "7", "hearts")],
     p3: [card("d3", "3", "diamonds")],
     p4: []
-  }, ["p1", "p2", "p3", "p4"]);
+  };
+  const scores = calculatePickRedScores(capturedCards, ["p1", "p2", "p3", "p4"]);
   assert.deepEqual(scores, { p1: 20, p2: 0, p3: 0, p4: 0 });
+  assert.deepEqual(calculatePickRedScoreAdjustments(capturedCards, ["p1", "p2", "p3", "p4"]), { p1: 30, p2: -10, p3: -10, p4: -10 });
 });
 
 test("red fives captured in separate pairs do not count as double red five", () => {
