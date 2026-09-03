@@ -19,6 +19,7 @@ export type RoomPlayer = {
   capturedCount?: number;
   score?: number;
   scoreAdjustment?: number;
+  matchPoints?: number;
   status?: string;
 };
 
@@ -26,13 +27,14 @@ type RoomHeaderProps = {
   gameName: string;
   roomCode: string;
   round?: number;
+  totalRounds?: number;
   status: RoomConnectionStatus;
   realOnly?: boolean;
   docsHref?: string;
   onLeave: () => void;
 };
 
-export function RoomHeader({ gameName, roomCode, round = 1, status, realOnly = false, docsHref = "/", onLeave }: RoomHeaderProps) {
+export function RoomHeader({ gameName, roomCode, round = 1, totalRounds = 1, status, realOnly = false, docsHref = "/", onLeave }: RoomHeaderProps) {
   const connected = status === "connected";
   return (
     <header className="bluff-topbar room-topbar">
@@ -40,7 +42,7 @@ export function RoomHeader({ gameName, roomCode, round = 1, status, realOnly = f
       <h1>{gameName}</h1>
       <div className="bluff-meta">
         <span>房號 <b>{formatRoom(roomCode)}</b></span>
-        <span>第 <b>{round}</b> 局</span>
+        <span>第 <b>{round}</b>{totalRounds > 1 ? ` / ${totalRounds}` : ""} 局</span>
         <strong className={`room-connection ${status}`}>
           {connected ? <Wifi size={18} /> : <WifiOff size={18} />}
           {connected ? "已連線" : status === "connecting" ? "連線中" : "連線異常"}
@@ -83,12 +85,13 @@ export function RoomTable(props: ResponsiveGameLayoutProps) {
   return <ResponsiveGameLayout {...props} />;
 }
 
-export function RoomOpponentSeat({ player, position, active = false, passed = false, cardBackMax = 5, roleInline = false }: { player?: Pick<RoomPlayer, "id" | "nickname" | "type" | "connected" | "cardsRemaining" | "capturedCount" | "score" | "scoreAdjustment" | "status">; position: RoomSeatPosition; active?: boolean; passed?: boolean; cardBackMax?: number; roleInline?: boolean }) {
+export function RoomOpponentSeat({ player, position, active = false, passed = false, cardBackMax = 5, roleInline = false }: { player?: Pick<RoomPlayer, "id" | "nickname" | "type" | "connected" | "cardsRemaining" | "capturedCount" | "score" | "scoreAdjustment" | "matchPoints" | "status">; position: RoomSeatPosition; active?: boolean; passed?: boolean; cardBackMax?: number; roleInline?: boolean }) {
   if (!player) return null;
   const count = player.cardsRemaining ?? 0;
   return (
     <article className={`bluff-opponent-seat room-opponent-seat ${position} ${active ? "active" : ""} ${player.status === "finished" ? "finished" : ""}`}>
       <div className="bluff-player-badge">
+        {typeof player.matchPoints === "number" ? <ResultPointsBadge value={player.matchPoints} /> : null}
         <div className="bluff-avatar">{player.nickname.trim().slice(0, 1) || "玩"}</div>
         <div><div className={roleInline ? "room-player-name-line" : ""}><strong style={{ fontSize: playerNameFontSize(player.nickname) }}>{player.nickname}</strong>{roleInline ? <em>{player.type === "bot" ? "電腦" : player.connected === false ? "重新連線中" : "真人"}</em> : null}</div><span>{count} 張牌{typeof player.capturedCount === "number" ? `　吃 ${player.capturedCount} 張` : ""}{typeof player.score === "number" ? <>　{player.score} 分<ScoreAdjustment value={player.scoreAdjustment} /></> : ""}</span></div>
         {!roleInline ? <em>{player.type === "bot" ? "電腦" : player.connected === false ? "重新連線中" : "真人"}</em> : null}
@@ -106,13 +109,19 @@ export function RoomCardBacks({ count, max = 5 }: { count: number; max?: number 
   return <div className="bluff-card-back-stack room-card-backs" aria-hidden="true">{Array.from({ length: visibleCount }).map((_, index) => <i key={index} style={{ left: visibleCount === 1 ? 0 : `${index / (visibleCount - 1) * 70}%`, transform: `rotate(${visibleCount === 1 ? 0 : -5 + index / (visibleCount - 1) * 10}deg)` }} />)}</div>;
 }
 
-export function RoomSelfBadge({ nickname, active = false, count, capturedCount, score, scoreAdjustment }: { nickname: string; active?: boolean; count?: number; capturedCount?: number; score?: number; scoreAdjustment?: number }) {
+export function RoomSelfBadge({ nickname, active = false, count, capturedCount, score, scoreAdjustment, matchPoints }: { nickname: string; active?: boolean; count?: number; capturedCount?: number; score?: number; scoreAdjustment?: number; matchPoints?: number }) {
   return (
     <div className={`bluff-self-badge room-self-badge ${active ? "active" : ""}`}>
+      {typeof matchPoints === "number" ? <ResultPointsBadge value={matchPoints} /> : null}
       <div className="bluff-avatar yellow">{nickname.trim().slice(0, 1) || "你"}</div>
       <div><span>你的手牌</span><strong style={{ fontSize: playerNameFontSize(nickname) }}>{nickname}</strong>{typeof count === "number" ? <em>{count} 張牌{typeof capturedCount === "number" ? `　吃 ${capturedCount} 張` : ""}{typeof score === "number" ? <>　{score} 分<ScoreAdjustment value={scoreAdjustment} /></> : ""}</em> : null}</div>
     </div>
   );
+}
+
+function ResultPointsBadge({ value }: { value: number }) {
+  const formatted = value > 0 ? `+${value}` : String(value);
+  return <div className={`room-win-badge ${value > 0 ? "positive" : value < 0 ? "negative" : "even"}`} title={`勝敗分 ${formatted}`}><span>勝敗</span><strong>{formatted}</strong></div>;
 }
 
 function ScoreAdjustment({ value }: { value?: number }) {
@@ -149,6 +158,9 @@ type UnifiedWaitingRoomProps = {
   minPlayers?: number;
   docsHref?: string;
   settings?: ReactNode;
+  selectedStartingPlayerId?: string;
+  canSelectStartingPlayer?: boolean;
+  onSelectStartingPlayer?: (playerId: string) => void;
   onAddBot?: (difficulty: RoomBotDifficulty) => void;
   onStart: () => void;
   onLeave: () => void;
@@ -160,7 +172,7 @@ const botDifficultyOptions: Array<{ value: RoomBotDifficulty; label: string }> =
   { value: "hard", label: "困難" }
 ];
 
-export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, statusText, players, maxPlayers, ownId, isHost, canUseRoom, canStart, allowBots = false, realOnly = false, minPlayers = 2, docsHref, settings, onAddBot, onStart, onLeave }: UnifiedWaitingRoomProps) {
+export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, statusText, players, maxPlayers, ownId, isHost, canUseRoom, canStart, allowBots = false, realOnly = false, minPlayers = 2, docsHref, settings, selectedStartingPlayerId = "", canSelectStartingPlayer = false, onSelectStartingPlayer, onAddBot, onStart, onLeave }: UnifiedWaitingRoomProps) {
   const emptySeats = Math.max(0, maxPlayers - players.length);
   const [botDifficulty, setBotDifficulty] = useState<RoomBotDifficulty>("normal");
   return (
@@ -185,7 +197,8 @@ export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, stat
             
           </fieldset> : null}
         </div> : null}
-        <div className="heart-lobby-list ninety-lobby-list">{players.map((player) => <WaitingSeat key={player.id} player={player} isSelf={player.id === ownId} />)}{Array.from({ length: emptySeats }).map((_, index) => <EmptyWaitingSeat key={`empty-${index}`} seatNumber={players.length + index + 1} />)}</div>
+        {onSelectStartingPlayer ? <p className="room-starting-player-hint">{isHost ? "點選玩家指定先手；再次點選可取消，未指定時將隨機抽選。" : selectedStartingPlayerId ? "房主已指定發黃光的玩家先手。" : "房主尚未指定先手，開局時將隨機抽選。"}</p> : null}
+        <div className="heart-lobby-list ninety-lobby-list">{players.map((player) => <WaitingSeat key={player.id} player={player} isSelf={player.id === ownId} selected={player.id === selectedStartingPlayerId} selectable={canSelectStartingPlayer} onSelect={onSelectStartingPlayer} />)}{Array.from({ length: emptySeats }).map((_, index) => <EmptyWaitingSeat key={`empty-${index}`} seatNumber={players.length + index + 1} />)}</div>
         <div className="heart-lobby-actions">
           {allowBots && onAddBot ? <button type="button" className="ready-button bot-button" onClick={() => onAddBot(botDifficulty)} disabled={!isHost || !canUseRoom || players.length >= maxPlayers}><Bot size={22} />加電腦補位</button> : null}
           {isHost ? <button type="button" className="play-card-button compact-action" onClick={onStart} disabled={!canStart || players.length < minPlayers}><Play size={20} />開始遊戲</button> : null}
@@ -197,8 +210,9 @@ export function UnifiedWaitingRoom({ gameName, roomCode, round = 1, status, stat
   );
 }
 
-function WaitingSeat({ player, isSelf }: { player: RoomPlayer; isSelf: boolean }) {
-  return <article className={`heart-lobby-seat lobby-${player.seat % 2 === 0 ? "yellow" : "green"} ready`}><span className="lobby-card-corner">{player.nickname.slice(0, 1) || "玩"}</span><span>座位 {player.seat + 1}{player.host ? " · 房主" : ""}</span><strong>{player.nickname}{isSelf ? "（你）" : ""}</strong><em>{player.type === "bot" ? `電腦玩家${player.botDifficulty ? ` · ${formatDifficulty(player.botDifficulty)}` : ""}` : "真人玩家"}</em><b>已加入</b></article>;
+function WaitingSeat({ player, isSelf, selected = false, selectable = false, onSelect }: { player: RoomPlayer; isSelf: boolean; selected?: boolean; selectable?: boolean; onSelect?: (playerId: string) => void }) {
+  const choose = () => { if (selectable) onSelect?.(player.id); };
+  return <article className={`heart-lobby-seat lobby-${player.seat % 2 === 0 ? "yellow" : "green"} ready ${selected ? "starting-player-selected" : ""} ${selectable ? "starting-player-selectable" : ""}`} role={selectable ? "button" : undefined} tabIndex={selectable ? 0 : undefined} aria-pressed={selectable ? selected : undefined} onClick={choose} onKeyDown={(event) => { if (selectable && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); choose(); } }}><span className="lobby-card-corner">{player.nickname.slice(0, 1) || "玩"}</span><span>座位 {player.seat + 1}{player.host ? " · 房主" : ""}</span><strong>{player.nickname}{isSelf ? "（你）" : ""}</strong><em>{player.type === "bot" ? `電腦玩家${player.botDifficulty ? ` · ${formatDifficulty(player.botDifficulty)}` : ""}` : "真人玩家"}</em><b>{selected ? "指定先手" : "已加入"}</b></article>;
 }
 
 function EmptyWaitingSeat({ seatNumber }: { seatNumber: number }) {

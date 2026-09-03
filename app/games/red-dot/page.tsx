@@ -41,17 +41,18 @@ export default function RedDotPage() {
     const maxPlayers = Number(params.get("players") ?? 4);
     const bots = Number(params.get("bots") ?? 0);
     const difficulty = params.get("difficulty") ?? "普通";
+    const matchMode = params.get("matchMode") === "full-round" ? "full-round" : "single";
     const client = new Client(serverUrl);
     setNickname(name);
     async function connect() {
       try {
         const room = mode === "join"
           ? await client.join<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, roomCode: requestedRoom, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema)
-          : await client.create<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, maxPlayers, bots, difficulty, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema);
+          : await client.create<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, maxPlayers, bots, difficulty, matchMode, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema);
         if (disposed) { await room.leave(); return; }
         roomRef.current = room; setOwnId(`player-${room.sessionId}`); setStatus("connected"); setState(room.state); setRoomCode(room.state.roomCode || room.roomId.slice(0, 6)); setMessage(mode === "join" ? "已加入撿紅點等待室，等待房主開始遊戲。" : "撿紅點房間已建立，分享房號邀請朋友。");
         room.onStateChange((next) => { setState(next); setRoomCode(next.roomCode || room.roomId.slice(0, 6)); setEvents((value) => value + 1); });
-        room.onMessage<PickRedPointsServerEvent>("pick-red-points:event", (event) => { if (event.type === "GAME_STARTED") setBottomCard(null); if (event.type === "HAND_UPDATED") { setHand(event.cards); setCapturedCards(event.capturedCards); if (!hasStartedDealRef.current && event.cards.length > 0) { hasStartedDealRef.current = true; setDealAnimation({ active: true, visible: 0 }); } setSelectedId((current) => event.cards.some((card) => card.id === current) ? current : event.cards[0]?.id ?? ""); } if (event.type === "BOTTOM_CARD_REVEALED") setBottomCard(event.card); if (event.type === "STATE_EVENT") setMessage(event.message); if (event.type === "ACTION_REJECTED") setMessage(event.reason); if (event.type === "ROOM_CLOSED") window.location.href = "/"; });
+        room.onMessage<PickRedPointsServerEvent>("pick-red-points:event", (event) => { if (event.type === "GAME_STARTED") { setBottomCard(null); hasStartedDealRef.current = false; } if (event.type === "HAND_UPDATED") { setHand(event.cards); setCapturedCards(event.capturedCards); if (!hasStartedDealRef.current && event.cards.length > 0) { hasStartedDealRef.current = true; setDealAnimation({ active: true, visible: 0 }); } setSelectedId((current) => event.cards.some((card) => card.id === current) ? current : event.cards[0]?.id ?? ""); } if (event.type === "BOTTOM_CARD_REVEALED") setBottomCard(event.card); if (event.type === "STATE_EVENT") setMessage(event.message); if (event.type === "ACTION_REJECTED") setMessage(event.reason); if (event.type === "ROOM_CLOSED") window.location.href = "/"; });
         room.onError((_code, error) => { setStatus("error"); setMessage(error ?? "連線發生錯誤"); });
       } catch (error) { setStatus("error"); setMessage(error instanceof Error ? error.message : "無法加入撿紅點房間"); }
     }
@@ -93,7 +94,8 @@ export default function RedDotPage() {
   const canDecideBlackHand = phase === "black-hand-decision" && blackHandPendingIds.has(ownId);
   const revealedBlackHandCards = Array.from(state?.revealedBlackHandCards ?? []);
   const revealedBlackHandPlayer = players.find((player) => player.id === state?.revealedBlackHandPlayerId);
-  const activeDeadline = phase === "finished" ? 0 : state?.targetDeadline || state?.turnDeadline || 0;
+  const isBetweenGames = phase === "finished" && (state?.round ?? 1) < (state?.totalRounds ?? 1);
+  const activeDeadline = phase === "finished" && !isBetweenGames ? 0 : state?.targetDeadline || state?.turnDeadline || 0;
   const countdown = activeDeadline ? Math.max(0, Math.ceil((activeDeadline - clockNow) / 1000)) : 0;
 
   function send(type: string, data: Record<string, unknown> = {}) { roomRef.current?.send(type, { type, actionId: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, ...data }); }
@@ -114,6 +116,10 @@ export default function RedDotPage() {
     canStart={isHost && players.length === (state?.maxPlayers ?? 4)}
     allowBots
     minPlayers={2}
+    settings={<div className="red-dot-match-mode-summary">{state?.matchMode === "full-round" ? `完整一輪 · 共 ${state.totalRounds} 局` : "單局模式"}</div>}
+    selectedStartingPlayerId={state?.selectedStartingPlayerId ?? ""}
+    canSelectStartingPlayer={isHost && status === "connected"}
+    onSelectStartingPlayer={(playerId) => send("SET_STARTING_PLAYER", { playerId: state?.selectedStartingPlayerId === playerId ? null : playerId })}
     onAddBot={(difficulty) => send("ADD_BOT", { difficulty })}
     onStart={() => send("START_GAME")}
     onLeave={leaveRoom}
@@ -121,7 +127,7 @@ export default function RedDotPage() {
 
   return (
     <main className="red-dot-page">
-      <RedDotHeader roomCode={roomCode} round={state?.round ?? 1} onLeave={leaveRoom} />
+      <RedDotHeader roomCode={roomCode} round={state?.round ?? 1} totalRounds={state?.totalRounds ?? 1} onLeave={leaveRoom} />
       <RoomTable gameName="撿紅點" className="red-dot-board">
         <OpponentCard player={opponents.right} position="right" current={state?.currentPlayerId === opponents.right?.id} />
         <OpponentCard player={opponents.top} position="top" current={state?.currentPlayerId === opponents.top?.id} />
@@ -135,7 +141,8 @@ export default function RedDotPage() {
           onReshuffle={() => send("RESHUFFLE_BLACK_HAND")}
         /> : null}
         {phase === "black-hand-reveal" ? <BlackHandReveal cards={revealedBlackHandCards} nickname={revealedBlackHandPlayer?.nickname ?? "玩家"} /> : null}
-        {phase === "bottom-card-confirmation" ? <BottomCardConfirmation card={bottomCard} isTailPlayer={own?.id === players.at(-1)?.id} /> : null}
+        {phase === "bottom-card-confirmation" ? <BottomCardConfirmation card={bottomCard} isTailPlayer={own?.id === state?.tailPlayerId} countdown={countdown} /> : null}
+        {isBetweenGames ? <BetweenGamesCountdown countdown={countdown} nextRound={(state?.round ?? 1) + 1} totalRounds={state?.totalRounds ?? 1} /> : null}
 
         <div className="red-dot-center">
           <div className="red-dot-status" aria-live="polite"><strong>{isMyTurn ? "輪到你了" : `等待 ${currentPlayer?.nickname ?? "玩家"}`}</strong><span>{message}</span></div>
@@ -155,7 +162,7 @@ export default function RedDotPage() {
 
         <div className="red-dot-self">
           <div className="red-dot-self-info">
-            <RoomSelfBadge nickname={nickname || "我"} active={isMyTurn} count={hand.length} capturedCount={own?.capturedCount ?? 0} score={own?.score ?? 0} scoreAdjustment={own?.scoreAdjustment ?? 0} />
+            <RoomSelfBadge nickname={nickname || "我"} active={isMyTurn} count={hand.length} capturedCount={own?.capturedCount ?? 0} score={own?.score ?? 0} scoreAdjustment={own?.scoreAdjustment ?? 0} matchPoints={own?.matchPoints ?? 0} />
             <CapturedCards cards={capturedCards} playerCount={players.length} />
           </div>
           <div className="red-dot-hand" aria-label="自己的手牌">{(dealAnimation.active ? hand.slice(0, dealAnimation.visible) : hand).map((card) => <button className={`red-card hand-card ${cardColorClass(card.suit)} ${card.id === selectedId ? "selected" : ""}`} key={card.id} type="button" onClick={() => setSelectedId(card.id)} aria-pressed={card.id === selectedId} aria-label={`${labels[card.suit]}${card.rank}手牌`}>{cardContent(card.rank, card.suit)}</button>)}</div>
@@ -167,10 +174,10 @@ export default function RedDotPage() {
   );
 }
 
-function RedDotHeader({ roomCode, round, onLeave }: { roomCode: string; round: number; onLeave: () => void }) { return <RoomHeader gameName="撿紅點" roomCode={roomCode} round={round} status="connected" docsHref="/docs/games/pick-red-points.md" onLeave={onLeave} />; }
+function RedDotHeader({ roomCode, round, totalRounds, onLeave }: { roomCode: string; round: number; totalRounds: number; onLeave: () => void }) { return <RoomHeader gameName="撿紅點" roomCode={roomCode} round={round} totalRounds={totalRounds} status="connected" docsHref="/docs/games/pick-red-points.md" onLeave={onLeave} />; }
 function OpponentCard({ player, position, current }: { player?: PublicPickRedPlayer; position: "top" | "left" | "right"; current: boolean }) {
   if (!player) return null;
-  return <RoomOpponentSeat player={{ id: player.id, nickname: player.nickname, cardsRemaining: player.cardsRemaining, capturedCount: player.capturedCount, score: player.score, scoreAdjustment: player.scoreAdjustment, type: player.type, connected: player.connected }} position={position} active={current} cardBackMax={player.cardsRemaining} roleInline />;
+  return <RoomOpponentSeat player={{ id: player.id, nickname: player.nickname, cardsRemaining: player.cardsRemaining, capturedCount: player.capturedCount, score: player.score, scoreAdjustment: player.scoreAdjustment, matchPoints: player.matchPoints, type: player.type, connected: player.connected }} position={position} active={current} cardBackMax={player.cardsRemaining} roleInline />;
 }
 function getRelativeOpponents(players: PublicPickRedPlayer[], ownSeat: number) {
   const ordered = Array.from({ length: Math.max(0, players.length - 1) }, (_, index) => players.find((player) => player.seat === (ownSeat + index + 1) % players.length)).filter((player): player is PublicPickRedPlayer => Boolean(player));
@@ -199,8 +206,12 @@ function BlackHandReveal({ cards, nickname }: { cards: PublicPickRedCard[]; nick
   </section>;
 }
 
-function BottomCardConfirmation({ card, isTailPlayer }: { card: Card | null; isTailPlayer: boolean }) {
-  return <section className="red-dot-black-hand-overlay bottom-card-confirmation" role="status" aria-live="assertive"><div className="red-dot-black-hand-panel"><span className="stamp">開局確認</span><h2>尾家確認底牌</h2>{isTailPlayer && card ? <><p>這是整疊撲克牌最底部的一張牌。</p><div className={`red-card bottom-confirm-card ${cardColorClass(card.suit)}`}>{cardContent(card.rank, card.suit)}</div></> : <p>請等待尾家查看底牌，5 秒後正式開始。</p>}</div></section>;
+function BottomCardConfirmation({ card, isTailPlayer, countdown }: { card: Card | null; isTailPlayer: boolean; countdown: number }) {
+  return <section className="red-dot-black-hand-overlay bottom-card-confirmation" role="status" aria-live="assertive"><div className="red-dot-black-hand-panel"><span className="stamp">開局確認</span><h2>尾家確認底牌</h2><div className="red-dot-phase-countdown">{countdown}</div>{isTailPlayer && card ? <><p>這是整疊撲克牌最底部的一張牌。</p><div className={`red-card bottom-confirm-card ${cardColorClass(card.suit)}`}>{cardContent(card.rank, card.suit)}</div></> : <p>請等待尾家查看底牌，倒數結束後正式開始。</p>}</div></section>;
+}
+
+function BetweenGamesCountdown({ countdown, nextRound, totalRounds }: { countdown: number; nextRound: number; totalRounds: number }) {
+  return <section className="red-dot-black-hand-overlay between-games-countdown" role="status" aria-live="polite"><div className="red-dot-black-hand-panel"><span className="stamp">本局結束</span><h2>準備第 {nextRound} / {totalRounds} 局</h2><div className="red-dot-phase-countdown">{countdown}</div><p>下一位頭家即將開始。</p></div></section>;
 }
 function CapturedCards({ cards, playerCount }: { cards: Card[]; playerCount: number }) {
   const scoringCards = cards.filter((card) => card.suit === "hearts" || card.suit === "diamonds" || (playerCount === 4 && card.suit === "spades" && card.rank === "A"));

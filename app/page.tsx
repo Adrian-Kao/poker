@@ -27,6 +27,7 @@ export default function Home() {
   const [targetPlayers, setTargetPlayers] = useState(4);
   const [botCount, setBotCount] = useState(1);
   const [difficulty, setDifficulty] = useState("普通");
+  const [pickRedMatchMode, setPickRedMatchMode] = useState<"single" | "full-round">("single");
   const [joinError, setJoinError] = useState("");
   const [isFindingRoom, setIsFindingRoom] = useState(false);
 
@@ -50,6 +51,7 @@ export default function Home() {
       bots: String(game.bots ? botCount : 0),
       difficulty
     });
+    if (game.id === "red-dot") params.set("matchMode", pickRedMatchMode);
     router.push(`/games/${game.slug}?${params.toString()}`);
   }
 
@@ -250,12 +252,18 @@ export default function Home() {
             </div>
           )}
 
+          {game.id === "red-dot" ? <div className="segmented" aria-label="撿紅點局數模式">
+            <button className={pickRedMatchMode === "single" ? "selected" : ""} onClick={() => setPickRedMatchMode("single")} type="button">只玩一局</button>
+            <button className={pickRedMatchMode === "full-round" ? "selected" : ""} onClick={() => setPickRedMatchMode("full-round")} type="button">玩完一輪（{targetPlayers} 局）</button>
+          </div> : null}
+
           <div className="summary-box">
             <strong>{game.name}</strong>
             <span>
               {targetPlayers} 人房，目前設定 {humanPlayers} 位真人{game.bots ? `、${botCount} 位電腦` : "。"}
             </span>
             <span>房號會由伺服器自動產生六位數，建立後直接進入等待室。</span>
+            {game.id === "red-dot" ? <span>{pickRedMatchMode === "full-round" ? `完整一輪共 ${targetPlayers} 局，每位玩家各當一次頭家與尾家。` : "本房間只進行一局。"}</span> : null}
           </div>
 
           <button className="confirm-room-button" disabled={!canCreate} onClick={createRoom} type="button">

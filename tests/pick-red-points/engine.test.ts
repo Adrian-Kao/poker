@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { advancePickRedPoints, calculatePickRedCardScore, calculatePickRedScoreAdjustments, calculatePickRedScores, chooseBestPickRedHandCard, chooseBestPickRedTarget, choosePickRedBotAction, createPickRedPointsGame, finalizePickRedScores, getPickRedDealCount, getPickRedWinners, getPickRedWinningScore, isAllBlackPickRedHand, isValidPickRedPair, keepPickRedBlackHand, playPickRedHandCard, requestPickRedBlackHandReshuffle, selectPickRedCaptureTarget } from "../../lib/games/pick-red-points";
+import { advancePickRedPoints, calculatePickRedCardScore, calculatePickRedScoreAdjustments, calculatePickRedScores, chooseBestPickRedHandCard, chooseBestPickRedTarget, choosePickRedBotAction, createPickRedPointsGame, finalizePickRedScores, getNextPickRedStartingPlayerId, getPickRedDealCount, getPickRedTailPlayerId, getPickRedWinners, getPickRedWinningScore, isAllBlackPickRedHand, isValidPickRedPair, keepPickRedBlackHand, playPickRedHandCard, requestPickRedBlackHandReshuffle, selectPickRedCaptureTarget } from "../../lib/games/pick-red-points";
 import type { Card } from "../../lib/games/core/cards";
 
 const players = [{ id: "p1", nickname: "阿德" }, { id: "p2", nickname: "小美" }];
@@ -43,6 +43,27 @@ test("requires selecting one target and captures exactly one table card", () => 
   assert.equal(captured.phase, "drawing");
   assert.equal(captured.hands.p1.some((handCard) => handCard.id === "hand-3"), false);
   assert.equal(captured.drawPile.length, custom.drawPile.length);
+});
+
+test("creates the game with the selected starting player", () => {
+  const state = createPickRedPointsGame({ players, random: () => 0.5, startingPlayerId: "p2" });
+  assert.equal(state.startingPlayerId, "p2");
+  assert.equal(state.currentPlayerId, "p2");
+});
+
+test("a full round rotates heads counterclockwise and gives everyone one tail turn", () => {
+  const playerIds = ["p1", "p2", "p3", "p4"];
+  const heads: string[] = [];
+  const tails: string[] = [];
+  let head = "p3";
+  for (let game = 0; game < playerIds.length; game += 1) {
+    heads.push(head);
+    tails.push(getPickRedTailPlayerId(playerIds, head));
+    head = getNextPickRedStartingPlayerId(playerIds, head);
+  }
+  assert.deepEqual(heads, ["p3", "p4", "p1", "p2"]);
+  assert.equal(new Set(heads).size, 4);
+  assert.equal(new Set(tails).size, 4);
 });
 
 test("automatically captures when a played hand card has exactly one target", () => {

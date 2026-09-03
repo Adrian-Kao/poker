@@ -5,6 +5,7 @@ export type PickRedPointsClientMessage =
   | { type: "SET_READY"; actionId: string; ready: boolean }
   | { type: "START_GAME"; actionId: string }
   | { type: "ADD_BOT"; actionId: string; difficulty: BotDifficulty }
+  | { type: "SET_STARTING_PLAYER"; actionId: string; playerId: string | null }
   | { type: "KEEP_BLACK_HAND"; actionId: string }
   | { type: "RESHUFFLE_BLACK_HAND"; actionId: string }
   | { type: "PLAY_HAND_CARD"; actionId: string; cardId: string }

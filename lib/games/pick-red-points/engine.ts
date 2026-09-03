@@ -5,7 +5,7 @@ import { calculatePickRedBaseScores, calculatePickRedCardScore, calculatePickRed
 import type { CreatePickRedPointsPlayerInput, PickRedPointsPlayer, PickRedPointsState, TableCard, VisiblePickRedPointsState } from "./types";
 
 /** 建立新牌局、發出手牌與桌牌，並在正式開局前檢查全黑手牌資格。 */
-export function createPickRedPointsGame(options: { players: CreatePickRedPointsPlayerInput[]; random?: () => number }): PickRedPointsState {
+export function createPickRedPointsGame(options: { players: CreatePickRedPointsPlayerInput[]; random?: () => number; startingPlayerId?: string }): PickRedPointsState {
   if (options.players.length < PICK_RED_MIN_PLAYERS || options.players.length > PICK_RED_MAX_PLAYERS) throw new Error("Pick red points needs 2 to 4 players.");
   if (new Set(options.players.map((player) => player.id)).size !== options.players.length) throw new Error("Player ids must be unique.");
   const deck = createPickRedPointsDeck(options.random);
@@ -13,12 +13,13 @@ export function createPickRedPointsGame(options: { players: CreatePickRedPointsP
   for (let index = 0; index < 24; index += 1) hands[options.players[index % options.players.length].id].push(deck[index]);
   const tableCards = deck.slice(24, 28).map((card, index) => ({ card, enteredAtTurn: 0, tableOrder: index }));
   const players: PickRedPointsPlayer[] = options.players.map((player, seat) => ({ id: player.id, nickname: player.nickname, seat, type: player.type ?? "human", botDifficulty: player.botDifficulty, status: "playing", connected: player.connected ?? true }));
+  const startingPlayerId = options.startingPlayerId && players.some((player) => player.id === options.startingPlayerId) ? options.startingPlayerId : players[0].id;
   const blackHandEligiblePlayerIds = players.filter((player) => isAllBlackPickRedHand(hands[player.id], players.length)).map((player) => player.id);
   return {
     phase: blackHandEligiblePlayerIds.length ? "black-hand-decision" : "playing-hand", players, hands, tableCards, drawPile: deck.slice(28),
-    capturedCards: Object.fromEntries(players.map((player) => [player.id, []])), currentPlayerId: players[0].id,
+    capturedCards: Object.fromEntries(players.map((player) => [player.id, []])), currentPlayerId: startingPlayerId,
     pendingCard: null, legalTargetIds: [], targetDeadline: null, scores: Object.fromEntries(players.map((player) => [player.id, 0])),
-    startingPlayerId: players[0].id, roundNumber: 1, turnNumber: 1, winners: [], processedActionIds: [], lastResult: blackHandEligiblePlayerIds.length ? "等待全黑手牌玩家決定是否重洗" : "輪到你了，請選一張手牌",
+    startingPlayerId, roundNumber: 1, turnNumber: 1, winners: [], processedActionIds: [], lastResult: blackHandEligiblePlayerIds.length ? "等待全黑手牌玩家決定是否重洗" : "輪到你了，請選一張手牌",
     blackHandEligiblePlayerIds, blackHandPendingPlayerIds: [...blackHandEligiblePlayerIds], revealedBlackHandPlayerId: null, revealedBlackHandCards: []
   };
 }
@@ -142,6 +143,18 @@ export function getPickRedCaptureGain(state: PickRedPointsState, playerId: strin
 
 /** 依座位順序取得下一位玩家，最後一位之後回到第一位。 */
 export function getNextPickRedPlayer(state: PickRedPointsState, playerId = state.currentPlayerId): string | null { if (!playerId) return null; const index = state.players.findIndex((player) => player.id === playerId); return index < 0 ? null : state.players[(index + 1) % state.players.length]?.id ?? null; }
+
+/** 取得完整一輪模式中，逆時針接任下一局頭家的玩家。 */
+export function getNextPickRedStartingPlayerId(playerIds: string[], currentStartingPlayerId: string): string {
+  const currentIndex = playerIds.indexOf(currentStartingPlayerId);
+  return playerIds[(Math.max(0, currentIndex) + 1) % playerIds.length];
+}
+
+/** 取得目前頭家在逆時針輪序中的前一位，也就是該局尾家。 */
+export function getPickRedTailPlayerId(playerIds: string[], startingPlayerId: string): string {
+  const startIndex = playerIds.indexOf(startingPlayerId);
+  return playerIds[(Math.max(0, startIndex) - 1 + playerIds.length) % playerIds.length];
+}
 /** 判斷手牌、抽牌堆及待處理配對是否全部清空。 */
 export function isPickRedGameFinished(state: PickRedPointsState) { return Object.values(state.hands).every((hand) => hand.length === 0) && state.drawPile.length === 0 && !state.pendingCard && !["selecting-hand-target", "revealing-draw", "selecting-draw-target"].includes(state.phase); }
 /** 依零分逆轉或人數門檻規則取得最終贏家 ID。 */
