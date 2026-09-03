@@ -9127,6 +9127,78 @@ body {
     }
 }
 
+@media (max-width: 767px) and (orientation: portrait) {
+    :root {
+        --multi-card-hand-overlap: clamp(-26px, -6.6vw, -14px);
+    }
+
+    .shared-room-table.shared-big-two-table,
+    .shared-room-table.bluff-table-like-ninety {
+        min-height: min(820px, calc(100dvh - 178px));
+    }
+
+    .shared-room-table.shared-big-two-table .big-two-self-zone,
+    .shared-room-table.bluff-table-like-ninety .bluff-self-zone {
+        right: 8px;
+        bottom: 10px;
+        left: 8px;
+        min-height: 164px;
+    }
+
+    .shared-room-table.shared-big-two-table .big-two-self-zone .room-self-badge,
+    .shared-room-table.bluff-table-like-ninety .bluff-self-zone .room-self-badge {
+        right: 10px;
+        bottom: 112px;
+        max-width: 154px;
+        scale: .64;
+        transform-origin: right bottom;
+    }
+
+    .big-two-self-zone .big-two-hand,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-hand {
+        min-height: 132px;
+        padding: 18px 0 6px 2px;
+        overflow-x: auto;
+        overflow-y: visible;
+        justify-content: flex-start;
+        align-items: end;
+        scrollbar-width: none;
+    }
+
+    .big-two-self-zone .big-two-hand::-webkit-scrollbar,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-hand::-webkit-scrollbar {
+        display: none;
+    }
+
+    .big-two-card-button,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-card-button,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-playing-card {
+        flex: 0 0 var(--game-card-width);
+        width: var(--game-card-width);
+    }
+
+    .big-two-card-button,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-card-button {
+        margin-left: var(--multi-card-hand-overlap);
+    }
+
+    .big-two-card-button:first-child,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-card-button:first-child {
+        margin-left: 0;
+    }
+
+    .big-two-card-button:hover,
+    .big-two-card-button.selected,
+    .bluff-card-button.selected {
+        transform: translateY(-14px);
+    }
+
+    .big-two-card.card-face,
+    .bluff-table-like-ninety .bluff-self-zone .bluff-playing-card {
+        box-shadow: 5px 5px 0 rgba(16, 16, 16, .34);
+    }
+}
+
 @media (max-width: 932px) and (orientation: landscape) {
     .bluff-table-controls {
         position: relative !important;
