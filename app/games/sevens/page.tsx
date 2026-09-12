@@ -1,7 +1,7 @@
 "use client";
 
 import "./page.css";
-import { CheckCircle2, Layers3, RotateCcw } from "lucide-react";
+import { Layers3 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "colyseus.js";
 import { getBotPlayerNameForDifficulty } from "../../../lib/games/core/botNames";
@@ -24,7 +24,7 @@ import {
   type SevensState
 } from "../../../lib/games/sevens";
 import { useBgmMode } from "../../SoundProvider";
-import { RoomHeader, RoomTable, UnifiedWaitingRoom, type RoomPlayer } from "../room";
+import { GameResultDialog, RoomHeader, RoomTable, UnifiedWaitingRoom, getTabClientId, navigateToSwitchedGame, type RoomPlayer } from "../room";
 import type { SevensServerEvent } from "../../../server/messages/sevensMessages";
 import { SevensRoomStateSchema, type PublicSevensPlayer } from "../../../server/schema/SevensRoomState";
 
@@ -66,8 +66,9 @@ export default function SevensPage() {
   useEffect(() => {
     let disposed = false;
     const params = new URLSearchParams(window.location.search);
+    const transferRoomId = params.get("roomId") ?? "";
     const joinMode = params.get("mode") === "join";
-    setCreatedAsHost(!joinMode);
+    setCreatedAsHost(!joinMode && !transferRoomId);
     const requestedRoom = (params.get("room") ?? "").replace(/\D/g, "").slice(0, 6);
     const name = params.get("name")?.trim() || params.get("nickname")?.trim() || "玩家";
     const requestedMode: SevensMode = params.get("sevensMode") === "double-deck-race" ? "double-deck-race" : "classic-four";
@@ -100,9 +101,11 @@ export default function SevensPage() {
 
     async function connect() {
       try {
-        const room = joinMode
-          ? await client.join<SevensRoomStateSchema>("sevens", { nickname: name, roomCode: requestedRoom, clientId }, SevensRoomStateSchema)
-          : await client.create<SevensRoomStateSchema>("sevens", { nickname: name, mode: requestedMode, maxPlayers: requestedPlayers, bots, difficulty, clientId }, SevensRoomStateSchema);
+        const room = transferRoomId
+          ? await client.joinById<SevensRoomStateSchema>(transferRoomId, { nickname: name, clientId }, SevensRoomStateSchema)
+          : joinMode
+            ? await client.join<SevensRoomStateSchema>("sevens", { nickname: name, roomCode: requestedRoom, clientId }, SevensRoomStateSchema)
+            : await client.create<SevensRoomStateSchema>("sevens", { nickname: name, mode: requestedMode, maxPlayers: requestedPlayers, bots, difficulty, clientId }, SevensRoomStateSchema);
         if (disposed) { await room.leave(); return; }
         roomRef.current = room;
         const ownPlayerId = `player-${room.sessionId}`;
@@ -121,6 +124,7 @@ export default function SevensPage() {
             window.setTimeout(() => setCoverFlyCard((current) => current?.card.id === event.card.id ? null : current), 720);
           }
           if (event.type === "ACTION_REJECTED") setStatusText(errorLabel(event.reason));
+          if (event.type === "GAME_SWITCHED") navigateToSwitchedGame(event, name);
           if (event.type === "ROOM_CLOSED") window.location.href = "/";
         });
         room.onError((_code, message) => { setStatus("error"); setStatusText(message ?? "排七房間連線錯誤"); });
@@ -246,6 +250,11 @@ export default function SevensPage() {
     window.setTimeout(() => { window.location.href = "/"; }, 150);
   }
 
+  function returnHome() {
+    void roomRef.current?.leave(true);
+    window.location.href = "/";
+  }
+
   const ownLobbyPlayer = lobbyPlayers.find((player) => player.id === selfId);
   const isHost = Boolean(ownLobbyPlayer?.host || (createdAsHost && ownLobbyPlayer?.seat === 0));
   const canUseRoom = status === "connected" && Boolean(roomRef.current);
@@ -348,11 +357,7 @@ export default function SevensPage() {
           </button>
         </section>
 
-        {game.phase === "finished" ? <div className="sevens-result" role="dialog" aria-modal="true">
-          <span><CheckCircle2 size={30} />本局結束</span>
-          <ol>{game.standings?.map((standing) => <li key={standing.playerId}><b>{standing.rank}</b>{standing.nickname}<em>{standing.coveredPoints} 分 / {standing.coveredCount} 張</em></li>)}</ol>
-          <button type="button" onClick={restart}><RotateCcw size={20} />再玩一局</button>
-        </div> : null}
+        {game.phase === "finished" ? <GameResultDialog currentGameId="sevens" winnerNames={[game.players.find((player) => player.id === game.winnerId)?.nickname ?? "玩家"]} scores={(game.standings ?? []).map((standing) => ({ playerId: standing.playerId, nickname: standing.nickname, score: standing.coveredPoints ?? 0 }))} isHost={isHost} humanPlayerCount={game.players.filter((player) => player.type !== "bot").length} onHome={returnHome} onPlayAgain={restart} onChangeGame={(gameId) => send("CHANGE_GAME", { gameId, clientId: getTabClientId("sevens") })} /> : null}
       </RoomTable>
     </main>
   );
@@ -462,15 +467,6 @@ function parseDifficulty(value: string | null): "easy" | "normal" | "hard" {
   if (value === "簡單" || value === "easy") return "easy";
   if (value === "困難" || value === "hard") return "hard";
   return "normal";
-}
-
-function getTabClientId(scope: string) {
-  const key = `poker-${scope}-client-id`;
-  const existing = window.sessionStorage.getItem(key);
-  if (existing) return existing;
-  const next = crypto.randomUUID();
-  window.sessionStorage.setItem(key, next);
-  return next;
 }
 
 function errorLabel(value: string) {

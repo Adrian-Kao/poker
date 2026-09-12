@@ -4,7 +4,6 @@ import "./page.css";
 import {
   CheckCircle2,
   Clock3,
-  Crown,
   Ghost
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,11 +16,14 @@ import {
 } from "../../../server/schema/OldMaidRoomState";
 import { useBgmMode } from "../../SoundProvider";
 import {
+  GameResultDialog,
   RoomHeader,
   RoomOpponentSeat,
   RoomSelfBadge,
   RoomTable,
   UnifiedWaitingRoom,
+  getTabClientId,
+  navigateToSwitchedGame,
   type RoomSeatPosition
 } from "../room";
 
@@ -40,6 +42,7 @@ type OldMaidClientMessageType =
   | "START_GAME"
   | "DRAW_CARD"
   | "PLAY_AGAIN"
+  | "CHANGE_GAME"
   | "CLOSE_ROOM";
 
 const gameServerUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
@@ -70,7 +73,8 @@ export default function OldMaidPage() {
   useEffect(() => {
     let disposed = false;
     const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode") === "join" ? "join" : "create";
+    const transferRoomId = params.get("roomId") ?? "";
+    const mode = transferRoomId ? "transfer" : params.get("mode") === "join" ? "join" : "create";
     const requestedRoom = (params.get("room") ?? "").replace(/\D/g, "").slice(0, 6);
     const name = params.get("name")?.trim()
       || params.get("nickname")?.trim()
@@ -90,8 +94,9 @@ export default function OldMaidPage() {
             : "正在建立抽鬼牌私人房間..."
         );
 
-        const room =
-          mode === "join"
+        const room = mode === "transfer"
+          ? await client.joinById<OldMaidRoomStateSchema>(transferRoomId, { nickname: name, clientId }, OldMaidRoomStateSchema)
+          : mode === "join"
             ? await client.join<OldMaidRoomStateSchema>(
                 "old_maid",
                 { nickname: name, roomCode: requestedRoom, clientId },
@@ -211,6 +216,9 @@ export default function OldMaidPage() {
             case "ACTION_REJECTED":
               setPendingSlotId("");
               setStatusText(event.reason);
+              break;
+            case "GAME_SWITCHED":
+              navigateToSwitchedGame(event, name);
               break;
             case "ROOM_CLOSED":
               window.location.href = "/";
@@ -355,6 +363,11 @@ export default function OldMaidPage() {
       onStart={() => send("START_GAME")}
       onLeave={leaveRoom}
     />;
+  }
+
+  function returnHome() {
+    void roomRef.current?.leave(true);
+    window.location.href = "/";
   }
   return (
     <main className="bluff-page-shell old-maid-shell old-maid-shared-shell">
@@ -512,28 +525,7 @@ export default function OldMaidPage() {
         </section>
       ) : null}
 
-      {phase === "finished" ? (
-        <section className="old-maid-result" role="dialog" aria-modal="true">
-          <Crown size={42} />
-          <span>本局結束</span>
-          <h2>
-            {playerName(players, roomState?.loserId ?? "")}
-            留下兩張鬼牌
-          </h2>
-          <p>
-            {roomState?.loserId === ownPlayerId
-              ? "這次鬼牌留在你手上。"
-              : "其他玩家已全部安全出局。"}
-          </p>
-          {isHost ? (
-            <button type="button" onClick={() => send("PLAY_AGAIN")}>
-              再來一局
-            </button>
-          ) : (
-            <span>等待房主決定是否再開一局。</span>
-          )}
-        </section>
-      ) : null}
+      {phase === "finished" ? <GameResultDialog currentGameId="old-maid" winnerNames={players.filter((player) => player.id !== roomState?.loserId).map((player) => player.nickname)} isHost={isHost} humanPlayerCount={players.length} onHome={returnHome} onPlayAgain={() => send("PLAY_AGAIN")} onChangeGame={(gameId) => send("CHANGE_GAME", { gameId, clientId: getTabClientId("old-maid") })} /> : null}
 
       <div className="sr-only" aria-live="polite">
         {statusText}。{notice}
@@ -701,14 +693,5 @@ function oldMaidOpponentPositions(count: number): RoomSeatPosition[] {
   if (count === 3) return ["top", "left", "right"];
   if (count === 4) return ["upper-left", "upper-right", "left", "right"];
   return ["top", "upper-left", "upper-right", "left", "right"];
-}
-
-function getTabClientId(scope: string) {
-  const key = `poker-${scope}-client-id`;
-  const existing = window.sessionStorage.getItem(key);
-  if (existing) return existing;
-  const next = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  window.sessionStorage.setItem(key, next);
-  return next;
 }
 

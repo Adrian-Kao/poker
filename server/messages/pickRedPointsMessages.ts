@@ -1,5 +1,6 @@
 import type { Card } from "../../lib/games/core/cards";
 import type { BotDifficulty } from "../../lib/games/pick-red-points";
+import type { ChangeGameMessage, GameSwitchedEvent } from "./gameFlowMessages";
 
 export type PickRedPointsClientMessage =
   | { type: "SET_READY"; actionId: string; ready: boolean }
@@ -10,7 +11,9 @@ export type PickRedPointsClientMessage =
   | { type: "RESHUFFLE_BLACK_HAND"; actionId: string }
   | { type: "PLAY_HAND_CARD"; actionId: string; cardId: string }
   | { type: "SELECT_CAPTURE_TARGET"; actionId: string; targetCardId: string; pendingSource: "hand" | "draw" }
-  | { type: "CLOSE_ROOM"; actionId?: string };
+  | { type: "PLAY_AGAIN"; actionId: string }
+  | { type: "CLOSE_ROOM"; actionId?: string }
+  | ChangeGameMessage;
 
 export type PickRedPointsServerEvent =
   | { type: "GAME_STARTED" }
@@ -19,4 +22,5 @@ export type PickRedPointsServerEvent =
   | { type: "STATE_EVENT"; message: string }
   | { type: "GAME_FINISHED"; winners: string[] }
   | { type: "ROOM_CLOSED"; reason: "left" }
-  | { type: "ACTION_REJECTED"; actionId?: string; reason: string };
+  | { type: "ACTION_REJECTED"; actionId?: string; reason: string }
+  | GameSwitchedEvent;

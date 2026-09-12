@@ -8,7 +8,7 @@ import { HeartAttackRoomStateSchema } from "../../../server/schema/HeartAttackRo
 import type { HeartAttackPhase, PenaltyReason, PenaltyResult } from "../../../lib/games/heart-attack";
 import type { HeartAttackServerEvent } from "../../../server/messages/heartAttackMessages";
 import { useBgmMode } from "../../SoundProvider";
-import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom } from "../room";
+import { GameResultDialog, RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, getTabClientId, navigateToSwitchedGame } from "../room";
 
 type Suit = "spades" | "hearts" | "diamonds" | "clubs";
 type DemoCard = { id: string; rank: string; suit: Suit };
@@ -67,7 +67,8 @@ export default function HeartAttackAutoPage() {
   useEffect(() => {
     let disposed = false;
     const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode") === "join" ? "join" : "create";
+    const transferRoomId = params.get("roomId") ?? "";
+    const mode = transferRoomId ? "transfer" : params.get("mode") === "join" ? "join" : "create";
     const requestedRoom = (params.get("room") ?? "").replace(/\D/g, "").slice(0, 6);
     const name = params.get("name")?.trim() || params.get("nickname")?.trim() || "玩家";
     const maxPlayers = Number(params.get("players") ?? 4);
@@ -81,8 +82,9 @@ export default function HeartAttackAutoPage() {
         setStatus("connecting");
         setStatusText(mode === "join" ? `正在加入房間 ${requestedRoom}...` : "正在建立私人房間...");
 
-        const room =
-          mode === "join"
+        const room = mode === "transfer"
+          ? await client.joinById<HeartAttackRoomStateSchema>(transferRoomId, { nickname: name, clientId }, HeartAttackRoomStateSchema)
+          : mode === "join"
             ? await client.join<HeartAttackRoomStateSchema>("heart_attack", { nickname: name, roomCode: requestedRoom, clientId }, HeartAttackRoomStateSchema)
             : await client.create<HeartAttackRoomStateSchema>("heart_attack", { nickname: name, maxPlayers, clientId }, HeartAttackRoomStateSchema);
 
@@ -114,6 +116,7 @@ export default function HeartAttackAutoPage() {
         room.onMessage<HeartAttackServerEvent>("heart-attack:event", (event) => {
           setEvents((current) => [event, ...current].slice(0, 8));
           if (event.type === "ACTION_REJECTED") setStatusText(event.reason);
+          if (event.type === "GAME_SWITCHED") navigateToSwitchedGame(event, name);
           if (event.type === "ROOM_CLOSED") {
             window.location.href = "/";
           }
@@ -158,7 +161,7 @@ export default function HeartAttackAutoPage() {
   const canStart = canUseRoom && isHost && phase === "waiting" && rawPlayers.length === (roomState?.maxPlayers ?? 4);
   const canSlap = canUseRoom && phase !== "waiting" && phase !== "round-result" && phase !== "finished";
 
-  function send(type: "SET_READY" | "START_GAME" | "ADD_BOT" | "SLAP" | "PLAY_AGAIN" | "CLOSE_ROOM", extra: Record<string, unknown> = {}) {
+  function send(type: "SET_READY" | "START_GAME" | "ADD_BOT" | "SLAP" | "PLAY_AGAIN" | "CHANGE_GAME" | "CLOSE_ROOM", extra: Record<string, unknown> = {}) {
     const room = roomRef.current;
     if (!room) return;
     const actionId = `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -174,6 +177,11 @@ export default function HeartAttackAutoPage() {
     window.setTimeout(() => {
       window.location.href = "/";
     }, 160);
+  }
+
+  function returnHome() {
+    void roomRef.current?.leave(true);
+    window.location.href = "/";
   }
 
   function slap() {
@@ -250,6 +258,8 @@ export default function HeartAttackAutoPage() {
           拍桌！
         </button>
       </div>
+
+      {phase === "finished" ? <GameResultDialog currentGameId="heart-attack" winnerNames={[rawPlayers.find((player) => player.id === roomState?.winnerId)?.nickname ?? "玩家"]} isHost={isHost} humanPlayerCount={rawPlayers.filter((player) => player.type !== "bot").length} onHome={returnHome} onPlayAgain={() => send("PLAY_AGAIN")} onChangeGame={(gameId) => send("CHANGE_GAME", { gameId, clientId: getTabClientId("heart-attack") })} /> : null}
 
     </main>
   );
@@ -357,13 +367,4 @@ function getPenaltyCopy(result: PenaltyResult) {
     case "pending-finish-failed":
       return { label: "收牌！", title: `${result.playerName} 還沒脫身`, description: "出完牌後尚未活過一輪，必須把牌收回去。" };
   }
-}
-
-function getTabClientId(scope: string) {
-  const key = `poker-${scope}-client-id`;
-  const existing = window.sessionStorage.getItem(key);
-  if (existing) return existing;
-  const next = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  window.sessionStorage.setItem(key, next);
-  return next;
 }

@@ -12,6 +12,7 @@ import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import type { SevensClientMessage, SevensServerEvent } from "../messages/sevensMessages";
 import { SevensRoomStateSchema, syncSevensPublicState, type LobbySevensPlayer } from "../schema/SevensRoomState";
 import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "../utilities/scheduler";
+import { activateTransferredRoom, createSwitchedGameRoom, holdTransferredRoom, sanitizeClientId, transferredHost } from "../utilities/gameSwitch";
 
 type ControllerOptions = {
   roomCode?: string;
@@ -19,6 +20,7 @@ type ControllerOptions = {
   maxPlayers?: number;
   bots?: number;
   difficulty?: SevensBotDifficulty;
+  hostClientId?: string;
   random?: () => number;
   scheduler?: RoomScheduler;
   emit?: (event: SevensServerEvent, playerId?: string) => void;
@@ -67,7 +69,7 @@ export class SevensRoomController {
       clientId,
       connected: true,
       ready: false,
-      host: !this.lobby.some((player) => player.type === "human")
+      host: transferredHost(clientId, this.options.hostClientId, this.lobby.some((player) => player.type === "human"))
     });
     let bots = Math.max(0, Math.floor(this.options.bots ?? 0));
     while (bots > 0 && this.lobby.length < this.publicState.maxPlayers) {
@@ -154,6 +156,7 @@ export class SevensRoomController {
   reset(sessionId: string, actionId: string) {
     this.fresh(actionId);
     this.requireHost(sessionId);
+    if (this.game?.phase !== "finished") throw new Error("GAME_NOT_FINISHED");
     this.cancel();
     this.game = null;
     this.publicState.round += 1;
@@ -239,8 +242,10 @@ export class SevensRoomController {
 export class SevensRoom extends Room {
   private controller!: SevensRoomController;
   private closing = false;
+  private switchingGame = false;
 
-  onCreate(options: { mode?: SevensMode; maxPlayers?: number; bots?: number; difficulty?: SevensBotDifficulty } = {}) {
+  onCreate(options: { roomCode?: string; mode?: SevensMode; maxPlayers?: number; bots?: number; difficulty?: SevensBotDifficulty; hostClientId?: string; transferredRoom?: boolean } = {}) {
+    holdTransferredRoom(this, options.transferredRoom);
     this.controller = new SevensRoomController({
       ...options,
       emit: (event, playerId) => this.emitEvent(event, playerId),
@@ -251,12 +256,13 @@ export class SevensRoom extends Room {
     const listing = (this as unknown as { listing?: Record<string, unknown> }).listing;
     if (listing) listing.roomCode = roomCode;
     this.setState(this.controller.publicState);
-    for (const type of ["SET_READY", "SET_SETTINGS", "START_GAME", "ADD_BOT", "REMOVE_BOT", "PLAY_CARD", "COVER_CARD", "REQUEST_STATE", "PLAY_AGAIN", "CLOSE_ROOM"]) {
+    for (const type of ["SET_READY", "SET_SETTINGS", "START_GAME", "ADD_BOT", "REMOVE_BOT", "PLAY_CARD", "COVER_CARD", "REQUEST_STATE", "PLAY_AGAIN", "CHANGE_GAME", "CLOSE_ROOM"]) {
       this.onMessage(type, (client, message: SevensClientMessage) => this.handle(client, message));
     }
   }
 
   onJoin(client: Client, options: { nickname?: string; clientId?: string } = {}) {
+    activateTransferredRoom(this);
     try {
       this.controller.addHuman(client.sessionId, options.nickname ?? "玩家", sanitizeClientId(options.clientId));
     } catch (error) {
@@ -289,10 +295,25 @@ export class SevensRoom extends Room {
         case "PLAY_CARD": this.controller.play(client.sessionId, message.actionId, message.cardId); break;
         case "COVER_CARD": this.controller.cover(client.sessionId, message.actionId, message.cardId); break;
         case "REQUEST_STATE": this.controller.requestHand(client.sessionId); break;
-        case "PLAY_AGAIN": this.unlock(); this.controller.reset(client.sessionId, message.actionId); break;
+        case "PLAY_AGAIN": this.controller.reset(client.sessionId, message.actionId); this.unlock(); break;
+        case "CHANGE_GAME": void this.changeGame(client, message); break;
         case "CLOSE_ROOM": this.closeRoom(); break;
       }
     } catch (error) {
+      client.send("sevens:event", reject(message.actionId, error));
+    }
+  }
+
+  private async changeGame(client: Client, message: Extract<SevensClientMessage, { type: "CHANGE_GAME" }>) {
+    try {
+      if (this.switchingGame) return;
+      const own = Array.from(this.controller.publicState.players).find((player) => player.id === `player-${client.sessionId}`);
+      if (!own?.host || this.controller.publicState.phase !== "finished") throw new Error("Only the host can change games after the game ends.");
+      this.switchingGame = true;
+      const event = await createSwitchedGameRoom({ sourceGameId: "sevens", targetGameId: message.gameId, roomCode: this.controller.publicState.roomCode, players: this.controller.publicState.players, hostClientId: message.clientId });
+      this.broadcast("sevens:event", event);
+    } catch (error) {
+      this.switchingGame = false;
       client.send("sevens:event", reject(message.actionId, error));
     }
   }
@@ -314,6 +335,5 @@ export class SevensRoom extends Room {
 function reject(actionId: string | undefined, error: unknown): SevensServerEvent { return { type: "ACTION_REJECTED", actionId, reason: error instanceof Error ? error.message : "ACTION_REJECTED" }; }
 function createRoomCode(random: () => number) { return String(Math.floor(100000 + random() * 900000)); }
 function sanitizeNickname(value: string) { return value.trim().slice(0, 16) || "玩家"; }
-function sanitizeClientId(value?: string) { return value?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48) || undefined; }
 function parseMode(value?: SevensMode): SevensMode { return value === "double-deck-race" ? value : "classic-four"; }
 function normalizePlayerCount(mode: SevensMode, value?: number) { if (mode === "classic-four") return 4; return Math.max(5, Math.min(8, Math.floor(value ?? 5))); }

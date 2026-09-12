@@ -1,4 +1,5 @@
 import type { SevensCard, SevensMode, SevensStanding } from "../../lib/games/sevens";
+import type { ChangeGameMessage, GameSwitchedEvent } from "./gameFlowMessages";
 
 export type SevensClientMessage =
   | { type: "SET_READY"; actionId: string; ready: boolean }
@@ -10,7 +11,8 @@ export type SevensClientMessage =
   | { type: "COVER_CARD"; actionId: string; cardId: string }
   | { type: "REQUEST_STATE"; actionId: string }
   | { type: "PLAY_AGAIN"; actionId: string }
-  | { type: "CLOSE_ROOM"; actionId: string };
+  | { type: "CLOSE_ROOM"; actionId: string }
+  | ChangeGameMessage;
 
 export type SevensServerEvent =
   | { type: "GAME_STARTED" }
@@ -20,4 +22,5 @@ export type SevensServerEvent =
   | { type: "TURN_CHANGED"; playerId: string }
   | { type: "GAME_FINISHED"; winnerId: string; standings: SevensStanding[] }
   | { type: "ROOM_CLOSED"; reason: "left" | "cancelled" }
-  | { type: "ACTION_REJECTED"; actionId?: string; reason: string };
+  | { type: "ACTION_REJECTED"; actionId?: string; reason: string }
+  | GameSwitchedEvent;

@@ -1,4 +1,5 @@
 import type { Card } from "../../lib/games/core/cards";
+import type { ChangeGameMessage, GameSwitchedEvent } from "./gameFlowMessages";
 
 export type BigTwoClientMessage =
   | { type: "SET_READY"; actionId: string; ready: boolean }
@@ -9,7 +10,8 @@ export type BigTwoClientMessage =
   | { type: "PASS"; actionId: string }
   | { type: "REQUEST_STATE"; actionId: string }
   | { type: "PLAY_AGAIN"; actionId: string }
-  | { type: "CLOSE_ROOM"; actionId: string };
+  | { type: "CLOSE_ROOM"; actionId: string }
+  | ChangeGameMessage;
 
 export type BigTwoServerEvent =
   | { type: "GAME_STARTED" }
@@ -20,5 +22,5 @@ export type BigTwoServerEvent =
   | { type: "TURN_CHANGED"; playerId: string; deadline: number }
   | { type: "GAME_FINISHED"; winnerIds: string[]; reason: string }
   | { type: "ROOM_CLOSED"; reason: "left" | "cancelled" }
-  | { type: "ACTION_REJECTED"; actionId?: string; reason: string };
-
+  | { type: "ACTION_REJECTED"; actionId?: string; reason: string }
+  | GameSwitchedEvent;

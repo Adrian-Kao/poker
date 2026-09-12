@@ -1,12 +1,14 @@
 import type { OldMaidCard } from "../../lib/games/old-maid";
 import type { Rank } from "../../lib/games/core/cards";
+import type { ChangeGameMessage, GameSwitchedEvent } from "./gameFlowMessages";
 
 export type OldMaidClientMessage =
   | { type: "SET_READY"; actionId: string; ready: boolean }
   | { type: "START_GAME"; actionId: string }
   | { type: "DRAW_CARD"; actionId: string; turnNumber: number; cardSlotId: string }
   | { type: "PLAY_AGAIN"; actionId: string }
-  | { type: "CLOSE_ROOM"; actionId: string };
+  | { type: "CLOSE_ROOM"; actionId: string }
+  | ChangeGameMessage;
 
 export type OldMaidServerEvent =
   | { type: "GAME_STARTED" }
@@ -18,4 +20,5 @@ export type OldMaidServerEvent =
   | { type: "PLAYER_SAFE"; playerId: string; finishOrder: number }
   | { type: "GAME_FINISHED"; loserId: string }
   | { type: "ROOM_CLOSED"; reason: "left" | "cancelled" }
-  | { type: "ACTION_REJECTED"; actionId?: string; reason: string };
+  | { type: "ACTION_REJECTED"; actionId?: string; reason: string }
+  | GameSwitchedEvent;

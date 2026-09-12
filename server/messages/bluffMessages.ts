@@ -1,4 +1,5 @@
 import type { BluffCard, BluffRank, BluffRoundResult, BotDifficulty } from "../../lib/games/bluff";
+import type { ChangeGameMessage, GameSwitchedEvent } from "./gameFlowMessages";
 
 export type BluffClientMessage =
   | { type: "SET_READY"; actionId: string; ready: boolean }
@@ -8,7 +9,8 @@ export type BluffClientMessage =
   | { type: "PLAY_CARDS"; actionId: string; cardIds: string[]; roundClaimRank: BluffRank }
   | { type: "REACT_TO_CLAIM"; actionId: string; choice: "trust" | "challenge" }
   | { type: "PLAY_AGAIN"; actionId: string }
-  | { type: "CLOSE_ROOM"; actionId: string };
+  | { type: "CLOSE_ROOM"; actionId: string }
+  | ChangeGameMessage;
 
 export type BluffServerEvent =
   | { type: "GAME_STARTED" }
@@ -20,4 +22,5 @@ export type BluffServerEvent =
   | { type: "TURN_CHANGED"; playerId: string; deadline: number }
   | { type: "GAME_FINISHED"; winnerId: string }
   | { type: "ROOM_CLOSED"; reason: "left" | "cancelled" }
-  | { type: "ACTION_REJECTED"; actionId?: string; reason: string };
+  | { type: "ACTION_REJECTED"; actionId?: string; reason: string }
+  | GameSwitchedEvent;

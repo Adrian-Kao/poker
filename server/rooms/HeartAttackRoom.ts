@@ -16,6 +16,7 @@ import { HeartAttackRoomStateSchema, PublicHeartAttackPlayer, syncPublicState } 
 import type { HeartAttackClientMessage, HeartAttackServerEvent } from "../messages/heartAttackMessages";
 import { toPenaltyNotice } from "../messages/heartAttackMessages";
 import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "../utilities/scheduler";
+import { activateTransferredRoom, createSwitchedGameRoom, holdTransferredRoom, sanitizeClientId, transferredHost } from "../utilities/gameSwitch";
 
 type LobbyPlayer = CreateHeartAttackPlayerInput & {
   sessionId?: string;
@@ -27,6 +28,7 @@ type LobbyPlayer = CreateHeartAttackPlayerInput & {
 export type HeartAttackRoomControllerOptions = {
   roomCode?: string;
   maxPlayers?: number;
+  hostClientId?: string;
   scheduler?: RoomScheduler;
   random?: () => number;
   emit?: (event: HeartAttackServerEvent) => void;
@@ -39,6 +41,7 @@ export class HeartAttackRoomController {
   private readonly random: () => number;
   private readonly emit: (event: HeartAttackServerEvent) => void;
   private readonly onGameStarted: () => void;
+  private readonly hostClientId?: string;
   private lobbyPlayers: LobbyPlayer[] = [];
   private gameState: HeartAttackState | null = null;
   private autoTask: ScheduledTask | null = null;
@@ -51,6 +54,7 @@ export class HeartAttackRoomController {
     this.random = options.random ?? Math.random;
     this.emit = options.emit ?? (() => undefined);
     this.onGameStarted = options.onGameStarted ?? (() => undefined);
+    this.hostClientId = options.hostClientId;
     this.publicState.roomCode = options.roomCode ?? createRoomCode(this.random);
     this.publicState.maxPlayers = clampMaxPlayers(options.maxPlayers ?? 4);
     this.syncPublic();
@@ -78,7 +82,7 @@ export class HeartAttackRoomController {
     }
     if (this.lobbyPlayers.length >= this.publicState.maxPlayers) throw new Error("Room is full.");
 
-    this.lobbyPlayers.push({
+    const player: LobbyPlayer = {
       id: `player-${sessionId}`,
       nickname: sanitizeNickname(nickname),
       type: "human",
@@ -86,7 +90,9 @@ export class HeartAttackRoomController {
       clientId,
       connected: true,
       ready: false
-    });
+    };
+    if (transferredHost(clientId, this.hostClientId, this.lobbyPlayers.some((item) => item.type === "human"))) this.lobbyPlayers.unshift(player);
+    else this.lobbyPlayers.push(player);
     this.syncPublic();
   }
 
@@ -177,8 +183,11 @@ export class HeartAttackRoomController {
     this.emitRoundResultIfNeeded(before);
   }
 
-  playAgain(actionId: string) {
+  playAgain(sessionId: string, actionId: string) {
     this.requireFreshAction(actionId);
+    const host = this.lobbyPlayers.find((player) => player.type === "human");
+    if (!host || host.sessionId !== sessionId) throw new Error("Only the host can play again.");
+    if (this.gameState?.phase !== "finished") throw new Error("Game is not finished.");
     this.cancelTimers();
     this.gameState = null;
     this.publicState.round += 1;
@@ -328,10 +337,14 @@ export class HeartAttackRoomController {
 export class HeartAttackRoom extends Room {
   private controller!: HeartAttackRoomController;
   private closingRoom = false;
+  private switchingGame = false;
 
-  onCreate(options: { maxPlayers?: number } = {}) {
+  onCreate(options: { roomCode?: string; maxPlayers?: number; hostClientId?: string; transferredRoom?: boolean } = {}) {
+    holdTransferredRoom(this, options.transferredRoom);
     this.controller = new HeartAttackRoomController({
+      roomCode: options.roomCode,
       maxPlayers: options.maxPlayers,
+      hostClientId: sanitizeClientId(options.hostClientId),
       emit: (event) => this.broadcast("heart-attack:event", event),
       onGameStarted: () => this.lock()
     });
@@ -347,10 +360,12 @@ export class HeartAttackRoom extends Room {
     this.onMessage("REMOVE_BOT", (client, message: HeartAttackClientMessage) => this.handleMessage(client, message));
     this.onMessage("SLAP", (client, message: HeartAttackClientMessage) => this.handleMessage(client, message));
     this.onMessage("PLAY_AGAIN", (client, message: HeartAttackClientMessage) => this.handleMessage(client, message));
+    this.onMessage("CHANGE_GAME", (client, message: HeartAttackClientMessage) => this.handleMessage(client, message));
     this.onMessage("CLOSE_ROOM", (client, message: HeartAttackClientMessage) => this.handleMessage(client, message));
   }
 
   onJoin(client: Client, options: { nickname?: string; clientId?: string } = {}) {
+    activateTransferredRoom(this);
     try {
       this.controller.addHuman(client.sessionId, options.nickname ?? "玩家", sanitizeClientId(options.clientId));
     } catch (error) {
@@ -396,14 +411,31 @@ export class HeartAttackRoom extends Room {
           this.controller.slap(client.sessionId, message.actionId);
           break;
         case "PLAY_AGAIN":
+          this.controller.playAgain(client.sessionId, message.actionId);
           this.unlock();
-          this.controller.playAgain(message.actionId);
+          break;
+        case "CHANGE_GAME":
+          void this.changeGame(client, message);
           break;
         case "CLOSE_ROOM":
           this.closeRoom();
           break;
       }
     } catch (error) {
+      client.send("heart-attack:event", reject(message.actionId, error));
+    }
+  }
+
+  private async changeGame(client: Client, message: Extract<HeartAttackClientMessage, { type: "CHANGE_GAME" }>) {
+    try {
+      if (this.switchingGame) return;
+      const host = this.controller.players.find((player) => player.type === "human");
+      if (host?.sessionId !== client.sessionId || this.controller.publicState.phase !== "finished") throw new Error("Only the host can change games after the game ends.");
+      this.switchingGame = true;
+      const event = await createSwitchedGameRoom({ sourceGameId: "heart-attack", targetGameId: message.gameId, roomCode: this.controller.publicState.roomCode, players: this.controller.publicState.players, hostClientId: message.clientId });
+      this.broadcast("heart-attack:event", event);
+    } catch (error) {
+      this.switchingGame = false;
       client.send("heart-attack:event", reject(message.actionId, error));
     }
   }
@@ -437,9 +469,4 @@ function clampMaxPlayers(value: number) {
 function sanitizeNickname(value: string) {
   const trimmed = value.trim();
   return trimmed.slice(0, 16) || "玩家";
-}
-
-function sanitizeClientId(value: string | undefined) {
-  const sanitized = value?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
-  return sanitized || undefined;
 }

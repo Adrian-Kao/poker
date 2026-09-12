@@ -8,11 +8,11 @@ import { bluffRanks } from "../../../lib/games/bluff";
 import { BluffRoomStateSchema, type PublicBluffPlayer } from "../../../server/schema/BluffRoomState";
 import type { BluffServerEvent } from "../../../server/messages/bluffMessages";
 import { useBgmMode, useSoundControls } from "../../SoundProvider";
-import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom } from "../room";
+import { GameResultDialog, RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, getTabClientId, navigateToSwitchedGame } from "../room";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type SeatPosition = "top" | "left" | "right";
-type BluffClientMessageType = "SET_READY" | "START_GAME" | "ADD_BOT" | "REMOVE_BOT" | "PLAY_CARDS" | "REACT_TO_CLAIM" | "PLAY_AGAIN" | "CLOSE_ROOM";
+type BluffClientMessageType = "SET_READY" | "START_GAME" | "ADD_BOT" | "REMOVE_BOT" | "PLAY_CARDS" | "REACT_TO_CLAIM" | "PLAY_AGAIN" | "CHANGE_GAME" | "CLOSE_ROOM";
 
 const gameServerUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
 const opponentPositions: SeatPosition[] = ["top", "left", "right"];
@@ -40,7 +40,8 @@ export default function LiarPage() {
   useEffect(() => {
     let disposed = false;
     const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode") === "join" ? "join" : "create";
+    const transferRoomId = params.get("roomId") ?? "";
+    const mode = transferRoomId ? "transfer" : params.get("mode") === "join" ? "join" : "create";
     const requestedRoom = (params.get("room") ?? "").replace(/\D/g, "").slice(0, 6);
     const name = params.get("name")?.trim() || params.get("nickname")?.trim() || params.get("nick")?.trim() || "玩家";
     const maxPlayers = Number(params.get("players") ?? 4);
@@ -56,8 +57,9 @@ export default function LiarPage() {
         setStatus("connecting");
         setStatusText(mode === "join" ? `正在加入房間 ${requestedRoom}...` : "正在建立吹牛私人房間...");
 
-        const room =
-          mode === "join"
+        const room = mode === "transfer"
+          ? await client.joinById<BluffRoomStateSchema>(transferRoomId, { nickname: name, clientId }, BluffRoomStateSchema)
+          : mode === "join"
             ? await client.join<BluffRoomStateSchema>("bluff", { nickname: name, roomCode: requestedRoom, clientId }, BluffRoomStateSchema)
             : await client.create<BluffRoomStateSchema>("bluff", { nickname: name, maxPlayers, bots, difficulty, clientId }, BluffRoomStateSchema);
 
@@ -101,6 +103,7 @@ export default function LiarPage() {
             }, 1200);
           }
           if (event.type === "ROOM_CLOSED") window.location.href = "/";
+          if (event.type === "GAME_SWITCHED") navigateToSwitchedGame(event, name);
         });
 
         room.onLeave((code) => {
@@ -202,6 +205,11 @@ export default function LiarPage() {
     window.setTimeout(() => {
       window.location.href = "/";
     }, 160);
+  }
+
+  function returnHome() {
+    void roomRef.current?.leave(true);
+    window.location.href = "/";
   }
 
   function toggleCard(cardId: string) {
@@ -332,12 +340,7 @@ export default function LiarPage() {
         </button>
       </section>
 
-      {phase === "finished" ? (
-        <div className="ninety-result-banner">
-          <strong>{currentPlayerName(rawPlayers, roomState?.winnerId ?? "")} 獲勝！</strong>
-          {isHost ? <button type="button" onClick={() => send("PLAY_AGAIN")}>再來一局</button> : null}
-        </div>
-      ) : null}
+      {phase === "finished" ? <GameResultDialog currentGameId="liar" winnerNames={[currentPlayerName(rawPlayers, roomState?.winnerId ?? "")]} isHost={isHost} humanPlayerCount={rawPlayers.filter((player) => player.type !== "bot").length} onHome={returnHome} onPlayAgain={() => send("PLAY_AGAIN")} onChangeGame={(gameId) => send("CHANGE_GAME", { gameId, clientId: getTabClientId("liar") })} /> : null}
 
       <div className="sr-only" aria-live="polite">{events[0]?.type ?? statusText}</div>
     </main>
@@ -396,15 +399,6 @@ function mapOpponents(players: PublicBluffPlayer[], ownPlayerId: string) {
 
 function currentPlayerName(players: PublicBluffPlayer[], playerId: string) {
   return players.find((player) => player.id === playerId)?.nickname || "玩家";
-}
-
-function getTabClientId(scope: string) {
-  const key = `poker-${scope}-client-id`;
-  const existing = window.sessionStorage.getItem(key);
-  if (existing) return existing;
-  const next = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  window.sessionStorage.setItem(key, next);
-  return next;
 }
 
 function suitSymbol(suit: BluffCard["suit"]) {

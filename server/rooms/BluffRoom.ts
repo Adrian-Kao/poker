@@ -18,12 +18,14 @@ import { getBotPlayerNameForDifficulty } from "../../lib/games/core/botNames";
 import { BluffRoomStateSchema, syncBluffPublicState, type LobbyBluffPlayer } from "../schema/BluffRoomState";
 import type { BluffClientMessage, BluffServerEvent } from "../messages/bluffMessages";
 import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "../utilities/scheduler";
+import { activateTransferredRoom, createSwitchedGameRoom, holdTransferredRoom, sanitizeClientId, transferredHost } from "../utilities/gameSwitch";
 
 type BluffRoomControllerOptions = {
   roomCode?: string;
   maxPlayers?: number;
   initialBotCount?: number;
   botDifficulty?: BotDifficulty;
+  hostClientId?: string;
   scheduler?: RoomScheduler;
   random?: () => number;
   emit?: (event: BluffServerEvent, playerId?: string) => void;
@@ -36,6 +38,7 @@ export class BluffRoomController {
   private readonly random: () => number;
   private readonly emit: (event: BluffServerEvent, playerId?: string) => void;
   private readonly onGameStarted: () => void;
+  private readonly hostClientId?: string;
   private lobbyPlayers: LobbyBluffPlayer[] = [];
   private gameState: BluffState | null = null;
   private actionIds = new Set<string>();
@@ -55,6 +58,7 @@ export class BluffRoomController {
     this.random = options.random ?? Math.random;
     this.emit = options.emit ?? (() => undefined);
     this.onGameStarted = options.onGameStarted ?? (() => undefined);
+    this.hostClientId = options.hostClientId;
     this.publicState.roomCode = options.roomCode ?? createRoomCode(this.random);
     this.publicState.maxPlayers = clampMaxPlayers(options.maxPlayers ?? 4);
     this.initialBotCount = 0;
@@ -90,7 +94,7 @@ export class BluffRoomController {
       clientId,
       connected: true,
       ready: false,
-      host: !this.lobbyPlayers.some((item) => item.type === "human")
+      host: transferredHost(clientId, this.hostClientId, this.lobbyPlayers.some((item) => item.type === "human"))
     };
     this.lobbyPlayers.push(player);
 
@@ -189,6 +193,7 @@ export class BluffRoomController {
   playAgain(sessionId: string, actionId: string) {
     this.requireFreshAction(actionId);
     this.requireHost(sessionId);
+    if (this.gameState?.phase !== "finished") throw new Error("Game is not finished.");
     this.cancelTimers();
     this.gameState = null;
     this.publicState.round += 1;
@@ -410,12 +415,16 @@ export class BluffRoomController {
 export class BluffRoom extends Room {
   private controller!: BluffRoomController;
   private closingRoom = false;
+  private switchingGame = false;
 
-  onCreate(options: { maxPlayers?: number; bots?: number; difficulty?: string } = {}) {
+  onCreate(options: { roomCode?: string; maxPlayers?: number; bots?: number; difficulty?: string; hostClientId?: string; transferredRoom?: boolean } = {}) {
+    holdTransferredRoom(this, options.transferredRoom);
     this.controller = new BluffRoomController({
+      roomCode: options.roomCode,
       maxPlayers: options.maxPlayers,
       initialBotCount: Number(options.bots ?? 0),
       botDifficulty: parseDifficulty(options.difficulty),
+      hostClientId: sanitizeClientId(options.hostClientId),
       emit: (event, playerId) => this.emitEvent(event, playerId),
       onGameStarted: () => this.lock()
     });
@@ -432,10 +441,12 @@ export class BluffRoom extends Room {
     this.onMessage("PLAY_CARDS", (client, message: BluffClientMessage) => this.handleMessage(client, message));
     this.onMessage("REACT_TO_CLAIM", (client, message: BluffClientMessage) => this.handleMessage(client, message));
     this.onMessage("PLAY_AGAIN", (client, message: BluffClientMessage) => this.handleMessage(client, message));
+    this.onMessage("CHANGE_GAME", (client, message: BluffClientMessage) => this.handleMessage(client, message));
     this.onMessage("CLOSE_ROOM", (client, message: BluffClientMessage) => this.handleMessage(client, message));
   }
 
   onJoin(client: Client, options: { nickname?: string; clientId?: string } = {}) {
+    activateTransferredRoom(this);
     try {
       this.controller.addHuman(client.sessionId, options.nickname ?? "玩家", sanitizeClientId(options.clientId));
     } catch (error) {
@@ -484,14 +495,31 @@ export class BluffRoom extends Room {
           this.controller.react(client.sessionId, message.actionId, message.choice);
           break;
         case "PLAY_AGAIN":
-          this.unlock();
           this.controller.playAgain(client.sessionId, message.actionId);
+          this.unlock();
+          break;
+        case "CHANGE_GAME":
+          void this.changeGame(client, message);
           break;
         case "CLOSE_ROOM":
           this.closeRoom();
           break;
       }
     } catch (error) {
+      client.send("bluff:event", reject(message.actionId, error));
+    }
+  }
+
+  private async changeGame(client: Client, message: Extract<BluffClientMessage, { type: "CHANGE_GAME" }>) {
+    try {
+      if (this.switchingGame) return;
+      const own = Array.from(this.controller.publicState.players).find((player) => player.id === `player-${client.sessionId}`);
+      if (!own?.host || this.controller.publicState.phase !== "finished") throw new Error("Only the host can change games after the game ends.");
+      this.switchingGame = true;
+      const event = await createSwitchedGameRoom({ sourceGameId: "liar", targetGameId: message.gameId, roomCode: this.controller.publicState.roomCode, players: this.controller.publicState.players, hostClientId: message.clientId });
+      this.broadcast("bluff:event", event);
+    } catch (error) {
+      this.switchingGame = false;
       client.send("bluff:event", reject(message.actionId, error));
     }
   }
@@ -535,11 +563,6 @@ function clampMaxPlayers(value: number) {
 function sanitizeNickname(value: string) {
   const trimmed = value.trim();
   return trimmed.slice(0, 16) || "玩家";
-}
-
-function sanitizeClientId(value: string | undefined) {
-  const sanitized = value?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
-  return sanitized || undefined;
 }
 
 function parseDifficulty(value?: string): BotDifficulty {

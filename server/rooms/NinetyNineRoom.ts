@@ -17,12 +17,14 @@ import { NinetyNineRoomStateSchema, syncNinetyNinePublicState, type LobbyNinetyN
 import type { NinetyNineClientMessage, NinetyNineServerEvent } from "../messages/ninetyNineMessages";
 import { toCardPlayedEvent } from "../messages/ninetyNineMessages";
 import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "../utilities/scheduler";
+import { activateTransferredRoom, createSwitchedGameRoom, holdTransferredRoom, sanitizeClientId, transferredHost } from "../utilities/gameSwitch";
 
 type NinetyNineRoomControllerOptions = {
   roomCode?: string;
   maxPlayers?: number;
   initialBotCount?: number;
   botDifficulty?: BotDifficulty;
+  hostClientId?: string;
   scheduler?: RoomScheduler;
   random?: () => number;
   emit?: (event: NinetyNineServerEvent, playerId?: string) => void;
@@ -35,6 +37,7 @@ export class NinetyNineRoomController {
   private readonly random: () => number;
   private readonly emit: (event: NinetyNineServerEvent, playerId?: string) => void;
   private readonly onGameStarted: () => void;
+  private readonly hostClientId?: string;
   private lobbyPlayers: LobbyNinetyNinePlayer[] = [];
   private gameState: NinetyNineState | null = null;
   private actionIds = new Set<string>();
@@ -50,6 +53,7 @@ export class NinetyNineRoomController {
     this.random = options.random ?? Math.random;
     this.emit = options.emit ?? (() => undefined);
     this.onGameStarted = options.onGameStarted ?? (() => undefined);
+    this.hostClientId = options.hostClientId;
     this.publicState.roomCode = options.roomCode ?? createRoomCode(this.random);
     this.publicState.maxPlayers = clampMaxPlayers(options.maxPlayers ?? 4);
     this.initialBotCount = Math.max(0, Math.floor(options.initialBotCount ?? 0));
@@ -85,7 +89,7 @@ export class NinetyNineRoomController {
       clientId,
       connected: true,
       ready: false,
-      host: !this.lobbyPlayers.some((item) => item.type === "human")
+      host: transferredHost(clientId, this.hostClientId, this.lobbyPlayers.some((item) => item.type === "human"))
     };
     this.lobbyPlayers.push(player);
 
@@ -174,6 +178,7 @@ export class NinetyNineRoomController {
   playAgain(sessionId: string, actionId: string) {
     this.requireFreshAction(actionId);
     this.requireHost(sessionId);
+    if (this.gameState?.phase !== "finished") throw new Error("Game is not finished.");
     this.cancelTimers();
     this.gameState = null;
     this.publicState.round += 1;
@@ -334,12 +339,16 @@ export class NinetyNineRoomController {
 export class NinetyNineRoom extends Room {
   private controller!: NinetyNineRoomController;
   private closingRoom = false;
+  private switchingGame = false;
 
-  onCreate(options: { maxPlayers?: number; bots?: number; difficulty?: string } = {}) {
+  onCreate(options: { roomCode?: string; maxPlayers?: number; bots?: number; difficulty?: string; hostClientId?: string; transferredRoom?: boolean } = {}) {
+    holdTransferredRoom(this, options.transferredRoom);
     this.controller = new NinetyNineRoomController({
+      roomCode: options.roomCode,
       maxPlayers: options.maxPlayers,
       initialBotCount: Number(options.bots ?? 0),
       botDifficulty: parseDifficulty(options.difficulty),
+      hostClientId: sanitizeClientId(options.hostClientId),
       emit: (event, playerId) => this.emitEvent(event, playerId),
       onGameStarted: () => this.lock()
     });
@@ -355,10 +364,12 @@ export class NinetyNineRoom extends Room {
     this.onMessage("REMOVE_BOT", (client, message: NinetyNineClientMessage) => this.handleMessage(client, message));
     this.onMessage("PLAY_CARD", (client, message: NinetyNineClientMessage) => this.handleMessage(client, message));
     this.onMessage("PLAY_AGAIN", (client, message: NinetyNineClientMessage) => this.handleMessage(client, message));
+    this.onMessage("CHANGE_GAME", (client, message: NinetyNineClientMessage) => this.handleMessage(client, message));
     this.onMessage("CLOSE_ROOM", (client, message: NinetyNineClientMessage) => this.handleMessage(client, message));
   }
 
   onJoin(client: Client, options: { nickname?: string; clientId?: string } = {}) {
+    activateTransferredRoom(this);
     try {
       this.controller.addHuman(client.sessionId, options.nickname ?? "玩家", sanitizeClientId(options.clientId));
     } catch (error) {
@@ -404,14 +415,31 @@ export class NinetyNineRoom extends Room {
           this.controller.playCard(client.sessionId, message.actionId, message.cardId, message.choice);
           break;
         case "PLAY_AGAIN":
-          this.unlock();
           this.controller.playAgain(client.sessionId, message.actionId);
+          this.unlock();
+          break;
+        case "CHANGE_GAME":
+          void this.changeGame(client, message);
           break;
         case "CLOSE_ROOM":
           this.closeRoom();
           break;
       }
     } catch (error) {
+      client.send("ninety-nine:event", reject(message.actionId, error));
+    }
+  }
+
+  private async changeGame(client: Client, message: Extract<NinetyNineClientMessage, { type: "CHANGE_GAME" }>) {
+    try {
+      if (this.switchingGame) return;
+      const own = Array.from(this.controller.publicState.players).find((player) => player.id === `player-${client.sessionId}`);
+      if (!own?.host || this.controller.publicState.phase !== "finished") throw new Error("Only the host can change games after the game ends.");
+      this.switchingGame = true;
+      const event = await createSwitchedGameRoom({ sourceGameId: "ninety-nine", targetGameId: message.gameId, roomCode: this.controller.publicState.roomCode, players: this.controller.publicState.players, hostClientId: message.clientId });
+      this.broadcast("ninety-nine:event", event);
+    } catch (error) {
+      this.switchingGame = false;
       client.send("ninety-nine:event", reject(message.actionId, error));
     }
   }
@@ -456,11 +484,6 @@ function clampMaxPlayers(value: number) {
 function sanitizeNickname(value: string) {
   const trimmed = value.trim();
   return trimmed.slice(0, 16) || "玩家";
-}
-
-function sanitizeClientId(value: string | undefined) {
-  const sanitized = value?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
-  return sanitized || undefined;
 }
 
 function parseDifficulty(value?: string): BotDifficulty {

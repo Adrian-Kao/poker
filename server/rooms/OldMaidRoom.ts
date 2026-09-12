@@ -15,6 +15,7 @@ import {
   type OldMaidRoomPhase
 } from "../schema/OldMaidRoomState";
 import { DefaultRoomScheduler, type RoomScheduler, type ScheduledTask } from "../utilities/scheduler";
+import { activateTransferredRoom, createSwitchedGameRoom, holdTransferredRoom, sanitizeClientId, transferredHost } from "../utilities/gameSwitch";
 
 export const OLD_MAID_TURN_DURATION_MS = 30000;
 export const OLD_MAID_RECONNECT_WINDOW_SECONDS = 30;
@@ -28,6 +29,7 @@ export const OLD_MAID_READY_DURATION_MS = 1500;
 type OldMaidRoomControllerOptions = {
   roomCode?: string;
   maxPlayers?: number;
+  hostClientId?: string;
   scheduler?: RoomScheduler;
   random?: () => number;
   emit?: (event: OldMaidServerEvent, playerId?: string) => void;
@@ -40,6 +42,7 @@ export class OldMaidRoomController {
   private readonly random: () => number;
   private readonly emit: (event: OldMaidServerEvent, playerId?: string) => void;
   private readonly onGameStarted: () => void;
+  private readonly hostClientId?: string;
   private lobbyPlayers: LobbyOldMaidPlayer[] = [];
   private gameState: OldMaidState | null = null;
   private actionIds = new Set<string>();
@@ -60,6 +63,7 @@ export class OldMaidRoomController {
     this.random = options.random ?? Math.random;
     this.emit = options.emit ?? (() => undefined);
     this.onGameStarted = options.onGameStarted ?? (() => undefined);
+    this.hostClientId = options.hostClientId;
     this.publicState.roomCode = options.roomCode ?? createRoomCode(this.random);
     this.publicState.maxPlayers = clampMaxPlayers(options.maxPlayers ?? 4);
     this.syncPublic();
@@ -96,7 +100,7 @@ export class OldMaidRoomController {
       clientId,
       connected: true,
       ready: false,
-      host: this.lobbyPlayers.length === 0
+      host: transferredHost(clientId, this.hostClientId, this.lobbyPlayers.length > 0)
     });
     this.syncPublic();
   }
@@ -534,10 +538,14 @@ export class OldMaidRoomController {
 export class OldMaidRoom extends Room {
   private controller!: OldMaidRoomController;
   private closingRoom = false;
+  private switchingGame = false;
 
-  onCreate(options: { maxPlayers?: number } = {}) {
+  onCreate(options: { roomCode?: string; maxPlayers?: number; hostClientId?: string; transferredRoom?: boolean } = {}) {
+    holdTransferredRoom(this, options.transferredRoom);
     this.controller = new OldMaidRoomController({
+      roomCode: options.roomCode,
       maxPlayers: options.maxPlayers,
+      hostClientId: sanitizeClientId(options.hostClientId),
       emit: (event, playerId) => this.emitEvent(event, playerId),
       onGameStarted: () => this.lock()
     });
@@ -551,10 +559,12 @@ export class OldMaidRoom extends Room {
     this.onMessage("START_GAME", (client, message: OldMaidClientMessage) => this.handleMessage(client, message));
     this.onMessage("DRAW_CARD", (client, message: OldMaidClientMessage) => this.handleMessage(client, message));
     this.onMessage("PLAY_AGAIN", (client, message: OldMaidClientMessage) => this.handleMessage(client, message));
+    this.onMessage("CHANGE_GAME", (client, message: OldMaidClientMessage) => this.handleMessage(client, message));
     this.onMessage("CLOSE_ROOM", (client, message: OldMaidClientMessage) => this.handleMessage(client, message));
   }
 
   onJoin(client: Client, options: { nickname?: string; clientId?: string } = {}) {
+    activateTransferredRoom(this);
     try {
       this.controller.addHuman(client.sessionId, options.nickname ?? "玩家", sanitizeClientId(options.clientId));
     } catch (error) {
@@ -610,12 +620,29 @@ export class OldMaidRoom extends Room {
           this.controller.playAgain(client.sessionId, message.actionId);
           this.unlock();
           break;
+        case "CHANGE_GAME":
+          void this.changeGame(client, message);
+          break;
         case "CLOSE_ROOM":
           this.controller.requestClose(client.sessionId, message.actionId);
           this.closeRoom("cancelled");
           break;
       }
     } catch (error) {
+      client.send("old-maid:event", reject(message.actionId, error));
+    }
+  }
+
+  private async changeGame(client: Client, message: Extract<OldMaidClientMessage, { type: "CHANGE_GAME" }>) {
+    try {
+      if (this.switchingGame) return;
+      const own = Array.from(this.controller.publicState.players).find((player) => player.id === `player-${client.sessionId}`);
+      if (!own?.host || this.controller.publicState.phase !== "finished") throw new Error("Only the host can change games after the game ends.");
+      this.switchingGame = true;
+      const event = await createSwitchedGameRoom({ sourceGameId: "old-maid", targetGameId: message.gameId, roomCode: this.controller.publicState.roomCode, players: this.controller.publicState.players, hostClientId: message.clientId });
+      this.broadcast("old-maid:event", event);
+    } catch (error) {
+      this.switchingGame = false;
       client.send("old-maid:event", reject(message.actionId, error));
     }
   }
@@ -666,9 +693,4 @@ function cloneHands(hands: Readonly<Record<string, readonly OldMaidCard[]>>) {
 function sanitizeNickname(value: string) {
   const trimmed = value.trim();
   return trimmed.slice(0, 12) || "玩家";
-}
-
-function sanitizeClientId(value: string | undefined) {
-  const sanitized = value?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
-  return sanitized || undefined;
 }

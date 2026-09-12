@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock3, Crown, Play, RotateCcw, SkipForward, X } from "lucide-react";
+import { Clock3, Play, RotateCcw, SkipForward, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Client, type Room } from "colyseus.js";
 import type { Card, Suit } from "../../../lib/games/core/cards";
@@ -8,7 +8,7 @@ import type { LegalNinetyNineAction, NinetyNinePhase, NinetyNinePlayChoice } fro
 import { NinetyNineRoomStateSchema, type PublicNinetyNinePlayer } from "../../../server/schema/NinetyNineRoomState";
 import type { NinetyNineServerEvent } from "../../../server/messages/ninetyNineMessages";
 import { useBgmMode } from "../../SoundProvider";
-import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom } from "../room";
+import { GameResultDialog, RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, getTabClientId, navigateToSwitchedGame } from "../room";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 type Seat = "self" | "top" | "left" | "right" | "upperLeft" | "upperRight";
@@ -38,7 +38,8 @@ export default function NinetyNinePage() {
   useEffect(() => {
     let disposed = false;
     const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode") === "join" ? "join" : "create";
+    const transferRoomId = params.get("roomId") ?? "";
+    const mode = transferRoomId ? "transfer" : params.get("mode") === "join" ? "join" : "create";
     const requestedRoom = (params.get("room") ?? "").replace(/\D/g, "").slice(0, 6);
     const name = params.get("name")?.trim() || params.get("nickname")?.trim() || "玩家";
     const maxPlayers = Number(params.get("players") ?? 4);
@@ -54,8 +55,9 @@ export default function NinetyNinePage() {
         setStatus("connecting");
         setStatusText(mode === "join" ? `正在加入房間 ${requestedRoom}...` : "正在建立九九私人房間...");
 
-        const room =
-          mode === "join"
+        const room = mode === "transfer"
+          ? await client.joinById<NinetyNineRoomStateSchema>(transferRoomId, { nickname: name, clientId }, NinetyNineRoomStateSchema)
+          : mode === "join"
             ? await client.join<NinetyNineRoomStateSchema>("ninety_nine", { nickname: name, roomCode: requestedRoom, clientId }, NinetyNineRoomStateSchema)
             : await client.create<NinetyNineRoomStateSchema>("ninety_nine", { nickname: name, maxPlayers, bots, difficulty, clientId }, NinetyNineRoomStateSchema);
 
@@ -97,6 +99,7 @@ export default function NinetyNinePage() {
             setSelectedCardId((current) => current && event.cards.some((card) => card.id === current) ? current : event.cards[0]?.id ?? "");
           }
           if (event.type === "ROOM_CLOSED") window.location.href = "/";
+          if (event.type === "GAME_SWITCHED") navigateToSwitchedGame(event, name);
         });
 
         room.onLeave((code) => {
@@ -151,7 +154,7 @@ export default function NinetyNinePage() {
   const sortedPlayers = mapPlayers(rawPlayers, ownPlayerId);
   const countdown = useCountdown(roomState?.turnDeadline ?? 0, stateVersion);
 
-  function send(type: "SET_READY" | "START_GAME" | "ADD_BOT" | "REMOVE_BOT" | "PLAY_CARD" | "PLAY_AGAIN" | "CLOSE_ROOM", extra: Record<string, unknown> = {}) {
+  function send(type: "SET_READY" | "START_GAME" | "ADD_BOT" | "REMOVE_BOT" | "PLAY_CARD" | "PLAY_AGAIN" | "CHANGE_GAME" | "CLOSE_ROOM", extra: Record<string, unknown> = {}) {
     const room = roomRef.current;
     if (!room) return;
     const actionId = `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -167,6 +170,11 @@ export default function NinetyNinePage() {
     window.setTimeout(() => {
       window.location.href = "/";
     }, 160);
+  }
+
+  function returnHome() {
+    void roomRef.current?.leave(true);
+    window.location.href = "/";
   }
 
   function play(choice: NinetyNinePlayChoice) {
@@ -280,13 +288,7 @@ export default function NinetyNinePage() {
         />
       </div>
 
-      {phase === "finished" ? (
-        <div className="ninety-result-banner">
-          <Crown size={34} />
-          <strong>{currentPlayerName(rawPlayers, roomState?.winnerId ?? "")} 獲勝！</strong>
-          {isHost ? <button type="button" onClick={() => send("PLAY_AGAIN")}>再來一局</button> : null}
-        </div>
-      ) : null}
+      {phase === "finished" ? <GameResultDialog currentGameId="ninety-nine" winnerNames={[currentPlayerName(rawPlayers, roomState?.winnerId ?? "")]} isHost={isHost} humanPlayerCount={rawPlayers.filter((player) => player.type !== "bot").length} onHome={returnHome} onPlayAgain={() => send("PLAY_AGAIN")} onChangeGame={(gameId) => send("CHANGE_GAME", { gameId, clientId: getTabClientId("ninety-nine") })} /> : null}
 
       <div className="sr-only" aria-live="polite">{events[0]?.type ?? statusText}</div>
     </main>
@@ -402,13 +404,4 @@ function useCountdown(deadline: number, version: number) {
     return () => window.clearInterval(timer);
   }, [deadline, version]);
   return seconds;
-}
-
-function getTabClientId(scope: string) {
-  const key = `poker-${scope}-client-id`;
-  const existing = window.sessionStorage.getItem(key);
-  if (existing) return existing;
-  const next = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  window.sessionStorage.setItem(key, next);
-  return next;
 }

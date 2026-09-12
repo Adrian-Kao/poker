@@ -1,5 +1,6 @@
 import type { BotDifficulty, LegalNinetyNineAction, NinetyNinePlayChoice, NinetyNineResolvedAction } from "../../lib/games/ninety-nine";
 import type { Card } from "../../lib/games/core/cards";
+import type { ChangeGameMessage, GameSwitchedEvent } from "./gameFlowMessages";
 
 export type NinetyNineClientMessage =
   | { type: "SET_READY"; actionId: string; ready: boolean }
@@ -8,7 +9,8 @@ export type NinetyNineClientMessage =
   | { type: "REMOVE_BOT"; actionId: string; botId: string }
   | { type: "PLAY_CARD"; actionId: string; cardId: string; choice: NinetyNinePlayChoice }
   | { type: "PLAY_AGAIN"; actionId: string }
-  | { type: "CLOSE_ROOM"; actionId: string };
+  | { type: "CLOSE_ROOM"; actionId: string }
+  | ChangeGameMessage;
 
 export type NinetyNineServerEvent =
   | { type: "GAME_STARTED" }
@@ -26,7 +28,8 @@ export type NinetyNineServerEvent =
   | { type: "PLAYER_ELIMINATED"; playerId: string; reason: "no-legal-action" }
   | { type: "GAME_FINISHED"; winnerId: string }
   | { type: "ROOM_CLOSED"; reason: "left" | "cancelled" }
-  | { type: "ACTION_REJECTED"; actionId?: string; reason: string };
+  | { type: "ACTION_REJECTED"; actionId?: string; reason: string }
+  | GameSwitchedEvent;
 
 export function toCardPlayedEvent(action: NinetyNineResolvedAction): NinetyNineServerEvent {
   return {
@@ -39,4 +42,3 @@ export function toCardPlayedEvent(action: NinetyNineResolvedAction): NinetyNineS
     system: action.system
   };
 }
-

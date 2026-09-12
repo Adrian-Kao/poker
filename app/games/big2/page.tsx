@@ -8,7 +8,7 @@ import { classifyCombination, compareCombinations, sortBigTwoCards } from "../..
 import type { BigTwoServerEvent } from "../../../server/messages/bigTwoMessages";
 import { BigTwoRoomStateSchema, type PublicBigTwoPlayer } from "../../../server/schema/BigTwoRoomState";
 import { useBgmMode } from "../../SoundProvider";
-import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, type RoomSeatPosition } from "../room";
+import { GameResultDialog, RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, getTabClientId, navigateToSwitchedGame, type RoomSeatPosition } from "../room";
 
 type ConnectionStatus = "connecting" | "connected" | "error" | "closed";
 const gameServerUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
@@ -30,7 +30,8 @@ export default function BigTwoPage() {
   useEffect(() => {
     let disposed = false;
     const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode") === "join" ? "join" : "create";
+    const transferRoomId = params.get("roomId") ?? "";
+    const mode = transferRoomId ? "transfer" : params.get("mode") === "join" ? "join" : "create";
     const requestedRoom = (params.get("room") ?? "").replace(/\D/g, "").slice(0, 6);
     const name = params.get("name")?.trim() || params.get("nickname")?.trim() || "玩家";
     const maxPlayers = Number(params.get("players") ?? 4) === 3 ? 3 : 4;
@@ -42,9 +43,11 @@ export default function BigTwoPage() {
 
     async function connect() {
       try {
-        const room = mode === "join"
-          ? await client.join<BigTwoRoomStateSchema>("big_two", { nickname: name, roomCode: requestedRoom, clientId }, BigTwoRoomStateSchema)
-          : await client.create<BigTwoRoomStateSchema>("big_two", { nickname: name, maxPlayers, bots, difficulty, clientId }, BigTwoRoomStateSchema);
+        const room = mode === "transfer"
+          ? await client.joinById<BigTwoRoomStateSchema>(transferRoomId, { nickname: name, clientId }, BigTwoRoomStateSchema)
+          : mode === "join"
+            ? await client.join<BigTwoRoomStateSchema>("big_two", { nickname: name, roomCode: requestedRoom, clientId }, BigTwoRoomStateSchema)
+            : await client.create<BigTwoRoomStateSchema>("big_two", { nickname: name, maxPlayers, bots, difficulty, clientId }, BigTwoRoomStateSchema);
         if (disposed) { await room.leave(); return; }
         roomRef.current = room;
         setOwnId(`player-${room.sessionId}`);
@@ -60,6 +63,7 @@ export default function BigTwoPage() {
             setSelectedIds((current) => current.filter((id) => event.cards.some((card) => card.id === id)));
           }
           if (event.type === "ACTION_REJECTED") setStatusText(errorLabel(event.reason));
+          if (event.type === "GAME_SWITCHED") navigateToSwitchedGame(event, name);
           if (event.type === "ROOM_CLOSED") window.location.href = "/";
         });
         room.onError((_code, message) => { setStatus("error"); setStatusText(message ?? "連線發生錯誤"); });
@@ -90,6 +94,7 @@ export default function BigTwoPage() {
 
   function send(type: string, extra: Record<string, unknown> = {}) { roomRef.current?.send(type, { type, actionId: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, ...extra }); }
   function leaveRoom() { if (!roomRef.current) { window.location.href = "/"; return; } send("CLOSE_ROOM"); window.setTimeout(() => { window.location.href = "/"; }, 150); }
+  function returnHome() { void roomRef.current?.leave(true); window.location.href = "/"; }
   function toggleCard(id: string) { if (!isMyTurn) return; setSelectedIds((current) => current.includes(id) ? current.filter((value) => value !== id) : current.length < 5 ? [...current, id] : current); }
   function reorderByDrop(targetCardId: string) {
     if (!draggedCardId || draggedCardId === targetCardId) return;
@@ -130,7 +135,7 @@ export default function BigTwoPage() {
         <button type="button" className="big-two-play-button" onClick={play} disabled={!canPlay}><Play size={26} />出牌</button>
         <button type="button" className="big-two-pass-button" onClick={pass} disabled={!canPass}><Check size={26} />PASS</button>
       </section>
-      {state.phase === "finished" ? <div className="ninety-result-banner"><strong>{state.notice}</strong>{isHost ? <button type="button" onClick={() => send("PLAY_AGAIN")}>再來一局</button> : null}</div> : null}
+      {state.phase === "finished" ? <GameResultDialog currentGameId="big2" winnerNames={Array.from(state.winnerIds).map((id) => players.find((player) => player.id === id)?.nickname ?? "玩家")} isHost={isHost} humanPlayerCount={players.filter((player) => player.type !== "bot").length} onHome={returnHome} onPlayAgain={() => send("PLAY_AGAIN")} onChangeGame={(gameId) => send("CHANGE_GAME", { gameId, clientId: getTabClientId("big-two") })} /> : null}
     </main>
   );
 }
@@ -153,5 +158,4 @@ function combinationLabel(value: string) { return ({ single: "單張", pair: "�
 function selectionMessage(cards: Card[], combination: ReturnType<typeof classifyCombination>, first: boolean, previous: ReturnType<typeof classifyCombination>) { if (!cards.length) return "選擇 1、2 或 5 張牌"; if (!combination) return cards.length === 3 || cards.length === 4 ? "本平台不使用三條；鐵支必須帶一張牌" : "非法組合"; if (first && !cards.some((card) => card.id === "clubs-3")) return "第一手必須包含梅花 3"; if (previous) { const compared = compareCombinations(combination, previous); if (compared === Number.NEGATIVE_INFINITY) return "只能出相同牌型；鐵支或同花順可以切牌"; if (compared <= 0) return "牌型正確，但不夠大"; } return `${combinationLabel(combination.type)}${combination.isBomb ? "，可切牌" : ""}`; }
 function errorLabel(value: string) { return ({ NOT_YOUR_TURN: "還沒輪到你", MUST_INCLUDE_THREE_OF_CLUBS: "第一手必須包含梅花 3", CANNOT_PASS_ON_LEAD: "新墩不能 PASS", INVALID_COMBINATION: "不是合法牌型", PLAY_NOT_HIGH_ENOUGH: "牌型正確，但不夠大", MUST_MATCH_CARD_COUNT: "只能出相同牌型；鐵支或同花順可以切牌" } as Record<string, string>)[value] ?? value; }
 function parseDifficulty(value: string | null) { if (value === "簡單" || value === "easy") return "easy"; if (value === "困難" || value === "hard") return "hard"; return "normal"; }
-function getTabClientId(scope: string) { const key = `poker-${scope}-client-id`; const existing = window.sessionStorage.getItem(key); if (existing) return existing; const next = crypto.randomUUID(); window.sessionStorage.setItem(key, next); return next; }
 function useCountdown(deadline: number, version: number) { const [seconds, setSeconds] = useState(0); useEffect(() => { const update = () => setSeconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000))); update(); const timer = window.setInterval(update, 250); return () => window.clearInterval(timer); }, [deadline, version]); return seconds; }

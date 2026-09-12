@@ -8,7 +8,7 @@ import type { PickRedPointsPhase } from "../../../lib/games/pick-red-points";
 import { PickRedPointsRoomStateSchema, type PublicPickRedCard, type PublicPickRedPlayer } from "../../../server/schema/PickRedPointsRoomState";
 import type { PickRedPointsServerEvent } from "../../../server/messages/pickRedPointsMessages";
 import { useBgmMode } from "../../SoundProvider";
-import { RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom } from "../room";
+import { GameResultDialog, RoomHeader, RoomOpponentSeat, RoomSelfBadge, RoomTable, UnifiedWaitingRoom, getTabClientId, navigateToSwitchedGame } from "../room";
 
 const serverUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
 const marks: Record<Suit, string> = { clubs: "♣", diamonds: "♦", hearts: "♥", spades: "♠" };
@@ -35,7 +35,8 @@ export default function RedDotPage() {
   useEffect(() => {
     let disposed = false;
     const params = new URLSearchParams(window.location.search);
-    const mode = params.get("mode") === "join" ? "join" : "create";
+    const transferRoomId = params.get("roomId") ?? "";
+    const mode = transferRoomId ? "transfer" : params.get("mode") === "join" ? "join" : "create";
     const requestedRoom = (params.get("room") ?? "").replace(/\D/g, "").slice(0, 6);
     const name = params.get("name")?.trim() || params.get("nickname")?.trim() || "玩家";
     const maxPlayers = Number(params.get("players") ?? 4);
@@ -46,13 +47,16 @@ export default function RedDotPage() {
     setNickname(name);
     async function connect() {
       try {
-        const room = mode === "join"
-          ? await client.join<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, roomCode: requestedRoom, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema)
-          : await client.create<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, maxPlayers, bots, difficulty, matchMode, clientId: getTabClientId("red-dot") }, PickRedPointsRoomStateSchema);
+        const clientId = getTabClientId("red-dot");
+        const room = mode === "transfer"
+          ? await client.joinById<PickRedPointsRoomStateSchema>(transferRoomId, { nickname: name, clientId }, PickRedPointsRoomStateSchema)
+          : mode === "join"
+            ? await client.join<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, roomCode: requestedRoom, clientId }, PickRedPointsRoomStateSchema)
+            : await client.create<PickRedPointsRoomStateSchema>("pick_red_points", { nickname: name, maxPlayers, bots, difficulty, matchMode, clientId }, PickRedPointsRoomStateSchema);
         if (disposed) { await room.leave(); return; }
         roomRef.current = room; setOwnId(`player-${room.sessionId}`); setStatus("connected"); setState(room.state); setRoomCode(room.state.roomCode || room.roomId.slice(0, 6)); setMessage(mode === "join" ? "已加入撿紅點等待室，等待房主開始遊戲。" : "撿紅點房間已建立，分享房號邀請朋友。");
         room.onStateChange((next) => { setState(next); setRoomCode(next.roomCode || room.roomId.slice(0, 6)); setEvents((value) => value + 1); });
-        room.onMessage<PickRedPointsServerEvent>("pick-red-points:event", (event) => { if (event.type === "GAME_STARTED") { setBottomCard(null); hasStartedDealRef.current = false; } if (event.type === "HAND_UPDATED") { setHand(event.cards); setCapturedCards(event.capturedCards); if (!hasStartedDealRef.current && event.cards.length > 0) { hasStartedDealRef.current = true; setDealAnimation({ active: true, visible: 0 }); } setSelectedId((current) => event.cards.some((card) => card.id === current) ? current : event.cards[0]?.id ?? ""); } if (event.type === "BOTTOM_CARD_REVEALED") setBottomCard(event.card); if (event.type === "STATE_EVENT") setMessage(event.message); if (event.type === "ACTION_REJECTED") setMessage(event.reason); if (event.type === "ROOM_CLOSED") window.location.href = "/"; });
+        room.onMessage<PickRedPointsServerEvent>("pick-red-points:event", (event) => { if (event.type === "GAME_STARTED") { setBottomCard(null); hasStartedDealRef.current = false; } if (event.type === "HAND_UPDATED") { setHand(event.cards); setCapturedCards(event.capturedCards); if (!hasStartedDealRef.current && event.cards.length > 0) { hasStartedDealRef.current = true; setDealAnimation({ active: true, visible: 0 }); } setSelectedId((current) => event.cards.some((card) => card.id === current) ? current : event.cards[0]?.id ?? ""); } if (event.type === "BOTTOM_CARD_REVEALED") setBottomCard(event.card); if (event.type === "STATE_EVENT") setMessage(event.message); if (event.type === "ACTION_REJECTED") setMessage(event.reason); if (event.type === "GAME_SWITCHED") navigateToSwitchedGame(event, name); if (event.type === "ROOM_CLOSED") window.location.href = "/"; });
         room.onError((_code, error) => { setStatus("error"); setMessage(error ?? "連線發生錯誤"); });
       } catch (error) { setStatus("error"); setMessage(error instanceof Error ? error.message : "無法加入撿紅點房間"); }
     }
@@ -97,9 +101,14 @@ export default function RedDotPage() {
   const isBetweenGames = phase === "finished" && (state?.round ?? 1) < (state?.totalRounds ?? 1);
   const activeDeadline = phase === "finished" && !isBetweenGames ? 0 : state?.targetDeadline || state?.turnDeadline || 0;
   const countdown = activeDeadline ? Math.max(0, Math.ceil((activeDeadline - clockNow) / 1000)) : 0;
+  const isFinalResult = phase === "finished" && !isBetweenGames;
+  const resultScores = players.map((player) => ({ playerId: player.id, nickname: player.nickname, score: state?.matchMode === "full-round" ? player.matchPoints : player.score }));
+  const bestMatchScore = resultScores.length ? Math.max(...resultScores.map((row) => row.score)) : 0;
+  const winnerIds = state?.matchMode === "full-round" ? resultScores.filter((row) => row.score === bestMatchScore).map((row) => row.playerId) : (state?.winners ?? "").split(",").filter(Boolean);
 
   function send(type: string, data: Record<string, unknown> = {}) { roomRef.current?.send(type, { type, actionId: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, ...data }); }
   function leaveRoom() { send("CLOSE_ROOM"); window.setTimeout(() => { window.location.href = "/"; }, 120); }
+  function returnHome() { void roomRef.current?.leave(true); window.location.href = "/"; }
   function playSelected() { if (selectedCard && isMyTurn && phase === "playing-hand") send("PLAY_HAND_CARD", { cardId: selectedCard.id }); }
   function chooseTarget(targetCardId: string) { if (isMyTurn && targetIds.has(targetCardId)) send("SELECT_CAPTURE_TARGET", { targetCardId, pendingSource: state?.phase === "selecting-draw-target" ? "draw" : "hand" }); }
 
@@ -170,6 +179,7 @@ export default function RedDotPage() {
         </div>
         <div className="red-dot-actions"><div className="red-countdown"><Clock3 size={20} />{activeDeadline ? countdown : "--"} 秒</div><button className="red-confirm" type="button" onClick={playSelected} disabled={!selectedCard || !isMyTurn || phase !== "playing-hand"}><Play size={22} />確認出牌</button></div>
       </RoomTable>
+      {isFinalResult ? <GameResultDialog currentGameId="red-dot" winnerNames={winnerIds.map((id) => players.find((player) => player.id === id)?.nickname ?? "玩家")} scores={resultScores} scoreLabel={state?.matchMode === "full-round" ? "總積分" : "分數"} isHost={isHost} humanPlayerCount={players.filter((player) => player.type !== "bot").length} onHome={returnHome} onPlayAgain={() => send("PLAY_AGAIN")} onChangeGame={(gameId) => send("CHANGE_GAME", { gameId, clientId: getTabClientId("red-dot") })} /> : null}
     </main>
   );
 }
@@ -225,4 +235,3 @@ function CapturedCards({ cards, playerCount }: { cards: Card[]; playerCount: num
 function CapturedRow({ label, cards }: { label: string; cards: Card[] }) { return <div className="red-dot-captured-row"><span>{label}</span><div>{cards.map((card) => <i className={`red-dot-captured-card ${cardColorClass(card.suit)}`} key={card.id} title={`${labels[card.suit]}${card.rank}`}>{cardContent(card.rank, card.suit)}</i>)}</div></div>; }
 function cardContent(rank: Rank, suit: Suit) { return <><span>{rank}</span><em>{marks[suit]}</em></>; }
 function cardColorClass(suit: Suit) { return suit === "hearts" || suit === "diamonds" ? "red-suit" : "black-suit"; }
-function getTabClientId(game: string) { const key = `poker:${game}:client-id`; const existing = window.sessionStorage.getItem(key); if (existing) return existing; const id = `${game}-${crypto.randomUUID()}`; window.sessionStorage.setItem(key, id); return id; }

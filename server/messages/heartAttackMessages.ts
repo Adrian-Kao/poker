@@ -1,4 +1,5 @@
 import type { BotDifficulty, HeartAttackCard, PenaltyResult, PlayedCard, RoundResult } from "../../lib/games/heart-attack";
+import type { ChangeGameMessage, GameSwitchedEvent } from "./gameFlowMessages";
 
 export type HeartAttackClientMessage =
   | {
@@ -31,7 +32,8 @@ export type HeartAttackClientMessage =
   | {
       type: "CLOSE_ROOM";
       actionId: string;
-    };
+    }
+  | ChangeGameMessage;
 
 export type PublicPlayedCard = Omit<PlayedCard, "card"> & {
   card: HeartAttackCard;
@@ -86,7 +88,8 @@ export type HeartAttackServerEvent =
       type: "ACTION_REJECTED";
       actionId?: string;
       reason: string;
-    };
+    }
+  | GameSwitchedEvent;
 
 export function toPenaltyNotice(result: PenaltyResult, displayMs: number, fastest?: { id: string; name: string }): PenaltyNotice {
   return {

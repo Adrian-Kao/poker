@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Bot, BookOpen, Copy, LogOut, Play, ShieldCheck, Wifi, WifiOff } from "lucide-react";
+import { Bot, BookOpen, Copy, Crown, House, LogOut, Play, RotateCcw, ShieldCheck, Shuffle, Wifi, WifiOff } from "lucide-react";
+import { games, type GameId } from "../data/games";
+import type { GameSwitchedEvent } from "../../server/messages/gameFlowMessages";
 
 export type RoomConnectionStatus = "connecting" | "connected" | "error" | "closed" | string;
 export type RoomSeatPosition = "top" | "left" | "right" | "upper-left" | "upper-right";
@@ -140,6 +142,67 @@ function playerNameFontSize(nickname: string) {
 export type UnifiedConnectionStatus = RoomConnectionStatus;
 export type UnifiedPlayer = RoomPlayer;
 export type RoomBotDifficulty = "easy" | "normal" | "hard";
+
+export type GameResultScore = { playerId: string; nickname: string; score: number };
+
+export function GameResultDialog({ currentGameId, winnerNames, scores = [], scoreLabel = "分數", isHost, humanPlayerCount, onHome, onPlayAgain, onChangeGame }: {
+  currentGameId: GameId;
+  winnerNames: string[];
+  scores?: GameResultScore[];
+  scoreLabel?: string;
+  isHost: boolean;
+  humanPlayerCount: number;
+  onHome: () => void;
+  onPlayAgain: () => void;
+  onChangeGame: (gameId: GameId) => void;
+}) {
+  const compatibleGames = games.filter((game) => game.id !== currentGameId && humanPlayerCount <= game.max);
+  const [nextGameId, setNextGameId] = useState<GameId>(compatibleGames[0]?.id ?? currentGameId);
+  const champions = winnerNames.filter(Boolean).join("、") || "本局玩家";
+
+  return (
+    <section className="game-result-overlay" role="dialog" aria-modal="true" aria-labelledby="game-result-title">
+      <div className="game-result-dialog">
+        <Crown className="game-result-crown" size={46} />
+        <span className="stamp">本局結束</span>
+        <h2 id="game-result-title">{champions} 是冠軍</h2>
+        {scores.length ? <div className="game-result-scores" aria-label="本局分數">
+          <div><strong>玩家</strong><strong>{scoreLabel}</strong></div>
+          {scores.map((row) => <div key={row.playerId}><span>{row.nickname}</span><b>{row.score}</b></div>)}
+        </div> : null}
+        <div className="game-result-actions">
+          <button type="button" onClick={onHome}><House size={20} />回到首頁</button>
+          <button type="button" onClick={onPlayAgain} disabled={!isHost}><RotateCcw size={20} />再來一局</button>
+        </div>
+        <div className="game-result-switch">
+          <select aria-label="選擇下一個遊戲" value={nextGameId} onChange={(event) => setNextGameId(event.target.value as GameId)} disabled={!isHost || !compatibleGames.length}>
+            {compatibleGames.map((game) => <option key={game.id} value={game.id}>{game.name}（{game.players}）</option>)}
+          </select>
+          <button type="button" onClick={() => onChangeGame(nextGameId)} disabled={!isHost || !compatibleGames.length}><Shuffle size={20} />換遊戲</button>
+        </div>
+        <p>{isHost ? "再來一局或換遊戲後，所有玩家會一起進入等待室。" : "等待房主選擇再來一局或更換遊戲。"}</p>
+      </div>
+    </section>
+  );
+}
+
+export function navigateToSwitchedGame(event: GameSwitchedEvent, nickname: string) {
+  const params = new URLSearchParams({ mode: "transfer", roomId: event.roomId, name: nickname || "玩家" });
+  window.location.href = `/games/${event.gameId}?${params.toString()}`;
+}
+
+export function getTabClientId(scope: string) {
+  const sharedKey = "poker:group-client-id";
+  const legacyKeys = [`poker:${scope}:client-id`, `poker-${scope}-client-id`];
+  const existing = window.sessionStorage.getItem(sharedKey) ?? legacyKeys.map((key) => window.sessionStorage.getItem(key)).find(Boolean);
+  if (existing) {
+    window.sessionStorage.setItem(sharedKey, existing);
+    return existing;
+  }
+  const next = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  window.sessionStorage.setItem(sharedKey, next);
+  return next;
+}
 
 type UnifiedWaitingRoomProps = {
   gameName: string;
