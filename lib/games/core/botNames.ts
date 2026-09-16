@@ -5,7 +5,7 @@ export const BOT_PLAYER_NAMES: Record<`bot${number}`, string> = {
   bot4: "阿仁",
   bot5: "帥帥",
   bot6: "SSC",
-  bot7: "電腦",
+  bot7: "777",
   bot8: "Mitsuhiko"
 };
 
