@@ -18,6 +18,7 @@ export type PickRedPointsClientMessage =
 export type PickRedPointsServerEvent =
   | { type: "GAME_STARTED" }
   | { type: "HAND_UPDATED"; cards: Card[]; capturedCards: Card[] }
+  | { type: "HAND_CARD_PLAYED"; card: Card; playerId: string; nickname: string }
   | { type: "BOTTOM_CARD_REVEALED"; card: Card }
   | { type: "STATE_EVENT"; message: string }
   | { type: "GAME_FINISHED"; winners: string[] }

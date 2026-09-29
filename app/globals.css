@@ -8933,6 +8933,36 @@ body {
     padding: 12px;
 }
 
+.shared-room-table.red-dot-board .red-dot-played-card-notice {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 24;
+    display: grid;
+    place-items: center;
+    gap: 7px;
+    padding: 10px 14px 15px;
+    border: 4px solid var(--yellow);
+    border-radius: 18px;
+    background: rgba(8, 47, 192, .96);
+    box-shadow: 0 0 0 4px var(--ink), 7px 7px 0 var(--ink);
+    color: white;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: red-dot-played-card-glow 650ms ease-in-out infinite alternate;
+}
+
+.shared-room-table.red-dot-board .red-dot-played-card-notice .red-card {
+    width: var(--red-dot-card-width);
+    height: var(--red-dot-card-height);
+    padding: 10px;
+}
+
+@keyframes red-dot-played-card-glow {
+    from { filter: brightness(1); }
+    to { filter: brightness(1.22); box-shadow: 0 0 24px rgba(255, 216, 59, .9), 0 0 0 4px var(--ink), 7px 7px 0 var(--ink); }
+}
+
 @media (min-width: 1300px) {
     .shared-room-table.red-dot-board {
         grid-template-columns: 350px minmax(520px, 1fr) 350px;
@@ -9007,8 +9037,8 @@ body {
 
 @media (max-width: 767px) {
     .shared-room-table.red-dot-board {
-        --red-dot-card-width: clamp(50px, 18vw, 72px);
-        --red-dot-card-height: 100px;
+        --red-dot-card-width: clamp(42px, 13vw, 56px);
+        --red-dot-card-height: 82px;
         min-height: 1040px;
     }
 
@@ -9025,8 +9055,33 @@ body {
     .shared-room-table.red-dot-board .red-dot-table-cards {
         grid-template-columns: repeat(4, var(--red-dot-card-width));
         grid-template-rows: repeat(2, var(--red-dot-card-height));
-        height: 250px;
-        padding: 16px 12px 20px;
+        height: 205px;
+        gap: 7px;
+        padding: 10px 8px 14px;
+    }
+
+    .shared-room-table.red-dot-board .table-card,
+    .shared-room-table.red-dot-board .red-pile .red-card-back,
+    .shared-room-table.red-dot-board .red-pile .red-drawn-card {
+        border-width: 3px;
+        border-radius: 9px;
+        box-shadow: 3px 3px 0 var(--ink);
+        padding: 6px;
+    }
+
+    .shared-room-table.red-dot-board .table-card span,
+    .shared-room-table.red-dot-board .red-pile .red-drawn-card span {
+        font-size: 1.35rem;
+    }
+
+    .shared-room-table.red-dot-board .table-card em,
+    .shared-room-table.red-dot-board .red-pile .red-drawn-card em {
+        font-size: 1.65rem;
+    }
+
+    .shared-room-table.red-dot-board .red-dot-played-card-notice {
+        top: 48%;
+        padding: 8px 10px 12px;
     }
 
     .shared-room-table.red-dot-board .red-dot-self-info {
