@@ -132,8 +132,8 @@ export default function BigTwoPage() {
       </RoomTable>
       <section className="bluff-bottom-controls big-two-shared-controls">
         <div className={`big-two-combination ${canPlay ? "legal" : ""}`} aria-live="polite"><strong>{selectionMessage(selectedCards, combination, state.firstTurnPending, previousCombination)}</strong></div>
-        <button type="button" className="big-two-play-button" onClick={play} disabled={!canPlay}><Play size={26} />出牌</button>
         <button type="button" className="big-two-pass-button" onClick={pass} disabled={!canPass}><Check size={26} />PASS</button>
+        <button type="button" className="big-two-play-button" onClick={play} disabled={!canPlay}><Play size={26} />出牌</button>
       </section>
       {state.phase === "finished" ? <GameResultDialog currentGameId="big2" winnerNames={Array.from(state.winnerIds).map((id) => players.find((player) => player.id === id)?.nickname ?? "玩家")} isHost={isHost} humanPlayerCount={players.filter((player) => player.type !== "bot").length} onHome={returnHome} onPlayAgain={() => send("PLAY_AGAIN")} onChangeGame={(gameId) => send("CHANGE_GAME", { gameId, clientId: getTabClientId("big-two") })} /> : null}
     </main>
@@ -153,7 +153,15 @@ function preserveHandOrder(current: Card[], incoming: Card[]) {
   return [...retained, ...sortBigTwoCards([...incomingById.values()])];
 }
 function toCard(card: { id: string; rank: string; suit: string }): Card { return { id: card.id, rank: card.rank as Card["rank"], suit: card.suit as Card["suit"] }; }
-function mapOpponents(players: PublicBigTwoPlayer[], ownId: string) { const others = players.filter((player) => player.id !== ownId); const positions: RoomSeatPosition[] = players.length === 3 ? ["left", "right"] : ["top", "left", "right"]; return others.map((player, index) => ({ id: player.id, nickname: player.nickname, type: player.type, connected: player.connected, cardsRemaining: player.cardsRemaining, status: player.status, passed: player.passed, position: positions[index] ?? "top" })); }
+function mapOpponents(players: PublicBigTwoPlayer[], ownId: string) {
+  const ordered = [...players].sort((left, right) => left.seat - right.seat);
+  const ownIndex = ordered.findIndex((player) => player.id === ownId);
+  const clockwise = ownIndex < 0
+    ? ordered.filter((player) => player.id !== ownId)
+    : ordered.slice(1).map((_, offset) => ordered[(ownIndex + offset + 1) % ordered.length]);
+  const positions: RoomSeatPosition[] = players.length === 3 ? ["left", "right"] : ["left", "top", "right"];
+  return clockwise.map((player, index) => ({ id: player.id, nickname: player.nickname, type: player.type, connected: player.connected, cardsRemaining: player.cardsRemaining, status: player.status, passed: player.passed, position: positions[index] ?? "top" }));
+}
 function combinationLabel(value: string) { return ({ single: "單張", pair: "對子", straight: "順子", "full-house": "葫蘆", "four-of-a-kind": "鐵支", "straight-flush": "同花順" } as Record<string, string>)[value] ?? value; }
 function selectionMessage(cards: Card[], combination: ReturnType<typeof classifyCombination>, first: boolean, previous: ReturnType<typeof classifyCombination>) { if (!cards.length) return "選擇 1、2 或 5 張牌"; if (!combination) return cards.length === 3 || cards.length === 4 ? "本平台不使用三條；鐵支必須帶一張牌" : "非法組合"; if (first && !cards.some((card) => card.id === "clubs-3")) return "第一手必須包含梅花 3"; if (previous) { const compared = compareCombinations(combination, previous); if (compared === Number.NEGATIVE_INFINITY) return "只能出相同牌型；鐵支或同花順可以切牌"; if (compared <= 0) return "牌型正確，但不夠大"; } return `${combinationLabel(combination.type)}${combination.isBomb ? "，可切牌" : ""}`; }
 function errorLabel(value: string) { return ({ NOT_YOUR_TURN: "還沒輪到你", MUST_INCLUDE_THREE_OF_CLUBS: "第一手必須包含梅花 3", CANNOT_PASS_ON_LEAD: "新墩不能 PASS", INVALID_COMBINATION: "不是合法牌型", PLAY_NOT_HIGH_ENOUGH: "牌型正確，但不夠大", MUST_MATCH_CARD_COUNT: "只能出相同牌型；鐵支或同花順可以切牌" } as Record<string, string>)[value] ?? value; }

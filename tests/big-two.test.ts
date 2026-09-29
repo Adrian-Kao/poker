@@ -65,6 +65,11 @@ test("first play must contain the three of clubs and lead cannot pass", () => {
   assert.throws(() => passTurn(state, "a", 10, "pass"), (error) => error instanceof BigTwoRuleError && error.code === "CANNOT_PASS_ON_LEAD");
 });
 
+test("play proceeds clockwise after the three of clubs opening", () => {
+  const state = playCards(sampleState(), "a", ["clubs-3"], 10, "play-a");
+  assert.equal(state.currentPlayerId, "b");
+});
+
 test("all other players passing resets the trick to its last player", () => {
   let state = playCards(sampleState(), "a", ["clubs-3"], 10, "play-a");
   state = passTurn(state, "b", 11, "pass-b");
